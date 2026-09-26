@@ -1,0 +1,85 @@
+<%- include('partials/head') %>
+  <main class="contenedor">
+    <h1>Integra CODE</h1>
+
+    <% if (agotado) { %>
+      <div id="mensaje-agotado" class="alerta alerta-agotado">
+        <strong>Aforo completo</strong> — ya no se aceptan más registros.
+      </div>
+    <% } else { %>
+      <section class="precios">
+        <h2>Precios</h2>
+        <ul>
+          <li>Solo entrada: <strong><%= precios.solo_entrada %></strong></li>
+          <li>Entrada + Bus: <strong><%= precios.entrada_bus %></strong></li>
+        </ul>
+      </section>
+
+      <section class="instrucciones-pago">
+        <h2>¿Cómo pagar?</h2>
+        <p>
+          Yapea al <strong><%= yapeNumero %></strong> y adjunta la captura del comprobante
+          en el formulario de abajo.
+        </p>
+      </section>
+
+      <div id="mensaje-exito" class="alerta alerta-exito" hidden></div>
+      <div id="mensaje-error-general" class="alerta alerta-error" hidden></div>
+
+      <form id="form-registro" novalidate>
+        <div class="campo">
+          <label for="nombre_completo">Nombre completo</label>
+          <input type="text" id="nombre_completo" name="nombre_completo" required />
+          <p class="error-campo" data-error-para="nombre_completo"></p>
+        </div>
+
+        <div class="campo">
+          <label for="dni">DNI</label>
+          <input type="text" id="dni" name="dni" inputmode="numeric" autocomplete="off" required />
+          <p class="error-campo" data-error-para="dni"></p>
+        </div>
+
+        <div class="campo">
+          <label for="celular">Celular</label>
+          <input type="text" id="celular" name="celular" inputmode="numeric" autocomplete="off" required />
+          <p class="error-campo" data-error-para="celular"></p>
+        </div>
+
+        <div class="campo">
+          <label for="correo">Correo (opcional)</label>
+          <input type="email" id="correo" name="correo" />
+          <p class="error-campo" data-error-para="correo"></p>
+        </div>
+
+        <div class="campo">
+          <label>Tipo de entrada</label>
+          <div class="opciones-entrada">
+            <label class="tarjeta-entrada">
+              <input type="radio" name="tipo_entrada" value="solo_entrada" required />
+              <span class="tarjeta-entrada__nombre">Solo entrada</span>
+              <span class="tarjeta-entrada__precio"><%= precios.solo_entrada %></span>
+            </label>
+            <label class="tarjeta-entrada">
+              <input type="radio" name="tipo_entrada" value="entrada_bus" />
+              <span class="tarjeta-entrada__nombre">Entrada + Bus</span>
+              <span class="tarjeta-entrada__precio"><%= precios.entrada_bus %></span>
+            </label>
+          </div>
+          <p class="error-campo" data-error-para="tipo_entrada"></p>
+        </div>
+
+        <div class="campo">
+          <label for="comprobante">Comprobante de pago (imagen)</label>
+          <input type="file" id="comprobante" name="comprobante" accept="image/*" required />
+          <p class="error-campo" data-error-para="comprobante"></p>
+        </div>
+
+        <button type="submit" id="boton-enviar">Registrarme</button>
+      </form>
+
+      <p class="aforo-info"><%= disponibles %> cupo(s) disponible(s) de <%= aforoMaximo %>.</p>
+    <% } %>
+  </main>
+
+  <script src="/js/registro.js"></script>
+<%- include('partials/footer') %>

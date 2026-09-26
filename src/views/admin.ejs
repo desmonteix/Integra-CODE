@@ -1,0 +1,39 @@
+<%- include('partials/head') %>
+  <main class="contenedor">
+    <h1>Panel del organizador</h1>
+    <p class="subtitulo">Vista de solo lectura — sin acciones de edición o borrado.</p>
+
+    <section>
+      <h2>Resumen de aforo</h2>
+      <p><%= totalRegistrados %> / <%= aforoMaximo %> registrados — <%= disponibles %> cupo(s) disponible(s).</p>
+    </section>
+
+    <section>
+      <h2>Registros (<%= registros.length %>)</h2>
+      <div style="overflow-x: auto;">
+        <table class="tabla-admin">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre completo</th>
+              <th>Tipo de entrada</th>
+              <th>Fecha</th>
+              <th>Webhook enviado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% registros.forEach(function (registro) { %>
+              <tr>
+                <td><%= registro.id %></td>
+                <td><%= registro.nombre_completo %></td>
+                <td><%= registro.tipo_entrada === 'entrada_bus' ? 'Entrada + Bus' : 'Solo entrada' %></td>
+                <td><%= registro.creado_en %></td>
+                <td><%= registro.webhook_enviado ? 'Sí' : 'No' %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+<%- include('partials/footer') %>
