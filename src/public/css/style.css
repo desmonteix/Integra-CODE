@@ -63,6 +63,14 @@
   box-sizing: border-box;
 }
 
+/* html necesita el mismo fondo que body: si solo body lo tiene, un rebote
+   de scroll (overscroll) o el primer pintado de la pagina pueden asomar el
+   hueco sin estilo de html por encima, y se ve como una "caja" de mas antes
+   del hero. */
+html {
+  background: var(--color-background);
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
