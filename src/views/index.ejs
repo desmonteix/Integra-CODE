@@ -52,12 +52,6 @@
     <span class="hero__blob hero__blob--3" aria-hidden="true"></span>
     <div class="hero__contenido">
       <h1>Integra CODE x Tu Pata x Prog REA x Kulture Wasi</h1>
-      <% if (!agotado) { %>
-        <span class="hero__cupos">
-          <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
-          <strong><%= disponibles %></strong> cupo(s) disponible(s) de <%= aforoMaximo %>
-        </span>
-      <% } %>
     </div>
   </header>
 
@@ -202,11 +196,6 @@
 
         <button type="submit" id="boton-enviar">Registrarme</button>
       </form>
-
-      <p class="aforo-info">
-        <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
-        <%= disponibles %> cupo(s) disponible(s) de <%= aforoMaximo %>.
-      </p>
     <% } %>
   </main>
 
