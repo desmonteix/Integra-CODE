@@ -202,6 +202,27 @@ h1 {
   overflow-wrap: break-word;
 }
 
+.hero__lugar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding: 0.4rem 0.9rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  color: var(--color-on-dark-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  animation: aparecer 0.6s ease 0.16s both;
+}
+
+.hero__lugar .icono {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-accent);
+}
+
 /* ---------- Layout general ---------- */
 
 .contenedor {
@@ -491,6 +512,23 @@ select {
 
 select:invalid {
   color: var(--color-muted-foreground);
+}
+
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.campo-checkbox input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
 }
 
 input::placeholder {

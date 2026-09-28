@@ -11,6 +11,7 @@ function datosValidos(overrides = {}) {
     correo: 'juana@example.com',
     organizacion: 'CODE',
     tipo_entrada: 'solo_entrada',
+    acepta_terminos: 'on',
     ...overrides,
   };
 }
@@ -87,6 +88,13 @@ test('rechaza nombre_completo vacio o solo espacios', () => {
   const resultado = validarRegistro(datosValidos({ nombre_completo: '   ' }));
   assert.equal(resultado.valido, false);
   assert.ok(resultado.detalles.some((d) => d.includes('nombre_completo')));
+});
+
+test('rechaza cuando falta acepta_terminos (checkbox sin marcar)', () => {
+  const { acepta_terminos, ...sinTerminos } = datosValidos();
+  const resultado = validarRegistro(sinTerminos);
+  assert.equal(resultado.valido, false);
+  assert.ok(resultado.detalles.some((d) => d.includes('acepta_terminos')));
 });
 
 test('acumula multiples detalles cuando fallan varios campos a la vez', () => {

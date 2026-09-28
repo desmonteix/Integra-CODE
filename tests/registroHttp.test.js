@@ -79,6 +79,7 @@ function formDataDeRegistro({
   organizacion = 'CODE',
   tipoEntrada = 'solo_entrada',
   conComprobante = true,
+  aceptaTerminos = true,
 }) {
   const fd = new FormData();
   fd.set('nombre_completo', 'Persona de Prueba HTTP');
@@ -87,6 +88,9 @@ function formDataDeRegistro({
   fd.set('correo', correo);
   fd.set('organizacion', organizacion);
   fd.set('tipo_entrada', tipoEntrada);
+  if (aceptaTerminos) {
+    fd.set('acepta_terminos', 'on');
+  }
   if (conComprobante) {
     fd.set('comprobante', new Blob([Buffer.from('contenido-fake-imagen')], { type: 'image/jpeg' }), 'comprobante.jpg');
   }

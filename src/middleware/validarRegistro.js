@@ -76,6 +76,13 @@ function validarRegistro(body) {
     detalles.push(`organizacion debe ser una de: ${ORGANIZACIONES_VALIDAS.join(', ')}`);
   }
 
+  // Los checkbox HTML solo viajan en el body cuando estan marcados (multer/
+  // el navegador omite el campo por completo si esta desmarcado, no manda
+  // "false") — por eso "requerido" aca es simplemente "esta presente".
+  if (!datos.acepta_terminos) {
+    detalles.push('acepta_terminos es requerido: debes aceptar los Términos y Condiciones');
+  }
+
   if (detalles.length > 0) {
     return { valido: false, detalles };
   }
