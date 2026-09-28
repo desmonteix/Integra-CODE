@@ -1,26 +1,109 @@
 <%- include('partials/head') %>
-  <main class="contenedor">
-    <h1>Integra CODE</h1>
+  <svg aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="icono-ticket" viewBox="0 0 24 24">
+      <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a1.5 1.5 0 0 0 0 3v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a1.5 1.5 0 0 0 0-3z"/>
+      <line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="2 2"/>
+    </symbol>
+    <symbol id="icono-bus" viewBox="0 0 24 24">
+      <path d="M6 6V4h12v2"/>
+      <rect x="3" y="6" width="18" height="11" rx="2"/>
+      <path d="M3 12h18"/>
+      <circle cx="7.5" cy="19" r="1.5"/>
+      <circle cx="16.5" cy="19" r="1.5"/>
+    </symbol>
+    <symbol id="icono-usuario" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="3.5"/>
+      <path d="M5 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5"/>
+    </symbol>
+    <symbol id="icono-id" viewBox="0 0 24 24">
+      <rect x="3" y="5" width="18" height="14" rx="2"/>
+      <circle cx="8.5" cy="11" r="2"/>
+      <path d="M5.5 16c.5-1.8 2-2.5 3-2.5s2.5.7 3 2.5"/>
+      <path d="M14 9h4M14 12h4M14 15h2.5"/>
+    </symbol>
+    <symbol id="icono-telefono" viewBox="0 0 24 24">
+      <rect x="7" y="2" width="10" height="20" rx="2"/>
+      <path d="M11 18h2"/>
+    </symbol>
+    <symbol id="icono-correo" viewBox="0 0 24 24">
+      <rect x="3" y="5" width="18" height="14" rx="2"/>
+      <path d="M3 7l9 6 9-6"/>
+    </symbol>
+    <symbol id="icono-edificio" viewBox="0 0 24 24">
+      <rect x="4" y="3" width="16" height="18" rx="1"/>
+      <path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/>
+      <path d="M10 21v-4h4v4"/>
+    </symbol>
+    <symbol id="icono-imagen" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2"/>
+      <circle cx="8.5" cy="9.5" r="1.5"/>
+      <path d="M21 16l-5.5-5.5a2 2 0 0 0-2.8 0L4 19"/>
+    </symbol>
+    <symbol id="icono-billetera" viewBox="0 0 24 24">
+      <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2"/>
+      <rect x="3" y="7" width="18" height="12" rx="2"/>
+      <circle cx="16.5" cy="13" r="1.6"/>
+    </symbol>
+  </svg>
 
+  <header class="hero">
+    <span class="hero__blob hero__blob--1" aria-hidden="true"></span>
+    <span class="hero__blob hero__blob--2" aria-hidden="true"></span>
+    <span class="hero__blob hero__blob--3" aria-hidden="true"></span>
+    <div class="hero__contenido">
+      <h1>Integra CODE x Tu Pata x Prog REA x Kulture Wasi</h1>
+      <% if (!agotado) { %>
+        <span class="hero__cupos">
+          <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
+          <strong><%= disponibles %></strong> cupo(s) disponible(s) de <%= aforoMaximo %>
+        </span>
+      <% } %>
+    </div>
+  </header>
+
+  <main class="contenedor">
     <% if (agotado) { %>
       <div id="mensaje-agotado" class="alerta alerta-agotado">
         <strong>Aforo completo</strong> — ya no se aceptan más registros.
       </div>
     <% } else { %>
       <section class="precios">
-        <h2>Precios</h2>
-        <ul>
-          <li>Solo entrada: <strong><%= precios.solo_entrada %></strong></li>
-          <li>Entrada + Bus: <strong><%= precios.entrada_bus %></strong></li>
+        <h2>
+          <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
+          Precios
+        </h2>
+        <ul class="precios-lista">
+          <li class="precios-item">
+            <span class="precios-item__icono" aria-hidden="true">
+              <svg class="icono"><use href="#icono-ticket"></use></svg>
+            </span>
+            <span class="precios-item__nombre">Solo entrada</span>
+            <span class="precios-item__precio"><%= precios.solo_entrada %></span>
+          </li>
+          <li class="precios-item">
+            <span class="precios-item__icono" aria-hidden="true">
+              <svg class="icono"><use href="#icono-bus"></use></svg>
+            </span>
+            <span class="precios-item__nombre">Entrada + Bus</span>
+            <span class="precios-item__precio"><%= precios.entrada_bus %></span>
+          </li>
         </ul>
       </section>
 
       <section class="instrucciones-pago">
-        <h2>¿Cómo pagar?</h2>
-        <p>
-          Yapea al <strong><%= yapeNumero %></strong> y adjunta la captura del comprobante
-          en el formulario de abajo.
-        </p>
+        <h2>
+          <svg class="icono" aria-hidden="true"><use href="#icono-billetera"></use></svg>
+          ¿Cómo pagar?
+        </h2>
+        <div class="instrucciones-pago__cuerpo">
+          <span class="instrucciones-pago__icono" aria-hidden="true">
+            <svg class="icono"><use href="#icono-telefono"></use></svg>
+          </span>
+          <p>
+            Yapea al <strong><%= yapeNumero %></strong> y adjunta la captura del comprobante
+            en el formulario de abajo.
+          </p>
+        </div>
       </section>
 
       <div id="mensaje-exito" class="alerta alerta-exito" hidden></div>
@@ -28,31 +111,46 @@
 
       <form id="form-registro" novalidate>
         <div class="campo">
-          <label for="nombre_completo">Nombre completo</label>
+          <label for="nombre_completo">
+            <svg class="icono" aria-hidden="true"><use href="#icono-usuario"></use></svg>
+            Nombre completo
+          </label>
           <input type="text" id="nombre_completo" name="nombre_completo" required />
           <p class="error-campo" data-error-para="nombre_completo"></p>
         </div>
 
         <div class="campo">
-          <label for="dni">DNI</label>
+          <label for="dni">
+            <svg class="icono" aria-hidden="true"><use href="#icono-id"></use></svg>
+            DNI
+          </label>
           <input type="text" id="dni" name="dni" inputmode="numeric" autocomplete="off" required />
           <p class="error-campo" data-error-para="dni"></p>
         </div>
 
         <div class="campo">
-          <label for="celular">Celular</label>
+          <label for="celular">
+            <svg class="icono" aria-hidden="true"><use href="#icono-telefono"></use></svg>
+            Celular
+          </label>
           <input type="text" id="celular" name="celular" inputmode="numeric" autocomplete="off" required />
           <p class="error-campo" data-error-para="celular"></p>
         </div>
 
         <div class="campo">
-          <label for="correo">Correo</label>
+          <label for="correo">
+            <svg class="icono" aria-hidden="true"><use href="#icono-correo"></use></svg>
+            Correo
+          </label>
           <input type="email" id="correo" name="correo" required />
           <p class="error-campo" data-error-para="correo"></p>
         </div>
 
         <div class="campo">
-          <label for="organizacion">Organización</label>
+          <label for="organizacion">
+            <svg class="icono" aria-hidden="true"><use href="#icono-edificio"></use></svg>
+            Organización
+          </label>
           <select id="organizacion" name="organizacion" required>
             <option value="" disabled selected>Selecciona tu organización</option>
             <option value="CODE">CODE</option>
@@ -63,25 +161,41 @@
           <p class="error-campo" data-error-para="organizacion"></p>
         </div>
 
-        <div class="campo">
-          <label>Tipo de entrada</label>
+        <fieldset class="campo campo--fieldset">
+          <legend>
+            <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
+            Tipo de entrada
+          </legend>
           <div class="opciones-entrada">
             <label class="tarjeta-entrada">
               <input type="radio" name="tipo_entrada" value="solo_entrada" required />
-              <span class="tarjeta-entrada__nombre">Solo entrada</span>
+              <span class="tarjeta-entrada__icono" aria-hidden="true">
+                <svg class="icono"><use href="#icono-ticket"></use></svg>
+              </span>
+              <span class="tarjeta-entrada__texto">
+                <span class="tarjeta-entrada__nombre">Solo entrada</span>
+              </span>
               <span class="tarjeta-entrada__precio"><%= precios.solo_entrada %></span>
             </label>
             <label class="tarjeta-entrada">
               <input type="radio" name="tipo_entrada" value="entrada_bus" />
-              <span class="tarjeta-entrada__nombre">Entrada + Bus</span>
+              <span class="tarjeta-entrada__icono" aria-hidden="true">
+                <svg class="icono"><use href="#icono-bus"></use></svg>
+              </span>
+              <span class="tarjeta-entrada__texto">
+                <span class="tarjeta-entrada__nombre">Entrada + Bus</span>
+              </span>
               <span class="tarjeta-entrada__precio"><%= precios.entrada_bus %></span>
             </label>
           </div>
           <p class="error-campo" data-error-para="tipo_entrada"></p>
-        </div>
+        </fieldset>
 
         <div class="campo">
-          <label for="comprobante">Comprobante de pago (imagen)</label>
+          <label for="comprobante">
+            <svg class="icono" aria-hidden="true"><use href="#icono-imagen"></use></svg>
+            Comprobante de pago (imagen)
+          </label>
           <input type="file" id="comprobante" name="comprobante" accept="image/*" required />
           <p class="error-campo" data-error-para="comprobante"></p>
         </div>
@@ -89,7 +203,10 @@
         <button type="submit" id="boton-enviar">Registrarme</button>
       </form>
 
-      <p class="aforo-info"><%= disponibles %> cupo(s) disponible(s) de <%= aforoMaximo %>.</p>
+      <p class="aforo-info">
+        <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
+        <%= disponibles %> cupo(s) disponible(s) de <%= aforoMaximo %>.
+      </p>
     <% } %>
   </main>
 

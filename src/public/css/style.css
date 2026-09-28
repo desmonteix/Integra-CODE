@@ -1,29 +1,47 @@
 /* Integra CODE — estilos, sin frameworks externos.
-   Paleta y tipografia via ui-ux-pro-max (patron "Event/Conference Landing",
-   estilo "Vibrant & Block-based", tipografia "Music/Entertainment"). */
+   Rediseño morado (skill ui-ux-pro-max, dominio color): base violeta profunda +
+   fucsia como pareja de degradado + dorado como acento premium puntual.
+   Tipografia se mantiene: Righteous (display) + Poppins (cuerpo), decision ya
+   tomada en una ronda anterior de diseño — no se revierte sin motivo. */
 
 :root {
-  --color-primary: #e11d48;
+  /* Marca — morado como color base */
+  --color-primary: #7c3aed;
+  --color-primary-hover: #6d28d9;
+  --color-primary-active: #5b21b6;
   --color-on-primary: #ffffff;
-  --color-secondary: #fb7185;
-  --color-on-secondary: #0f172a;
-  --color-accent: #2563eb;
-  --color-on-accent: #ffffff;
-  --color-background: #fff1f2;
-  --color-foreground: #881337;
-  --color-card: #ffffff;
-  --color-card-foreground: #881337;
-  --color-muted: #f0ecf2;
+
+  --color-secondary: #c026d3;
+  --color-secondary-soft: #f0abfc;
+  --color-on-secondary: #ffffff;
+
+  --color-accent: #fbbf24;
+  --color-on-accent: #451a03;
+
+  /* Hero oscuro — profundidad real, no morado plano */
+  --color-hero-deep: #1e1033;
+  --color-hero-mid: #3b0764;
+  --color-hero-vivid: #6d28d9;
+  --color-on-dark: #f6f0ff;
+  --color-on-dark-muted: #e6d9fb;
+
+  /* Superficies claras (donde vive la mayor parte del texto y del formulario) */
+  --color-background: #faf7ff;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f5efff;
+  --color-foreground: #2e1065;
   --color-muted-foreground: #64748b;
-  --color-border: #fecdd3;
+  --color-border: #ddc9f8;
+  --color-border-strong: #c4a6f0;
+
   --color-destructive: #dc2626;
   --color-on-destructive: #ffffff;
   --color-success: #16a34a;
-  --color-success-bg: #dcfce7;
-  --color-success-fg: #14532d;
-  --color-error-bg: #fee2e2;
+  --color-success-bg: #ecfdf5;
+  --color-success-fg: #065f46;
+  --color-error-bg: #fef2f2;
   --color-error-fg: #7f1d1d;
-  --color-ring: #e11d48;
+  --color-ring: #7c3aed;
 
   --font-display: "Righteous", "Poppins", sans-serif;
   --font-body: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -31,9 +49,11 @@
   --radius-sm: 10px;
   --radius-md: 16px;
   --radius-lg: 22px;
+  --radius-xl: 30px;
 
-  --shadow-card: 0 1px 2px rgba(136, 19, 55, 0.06), 0 8px 24px rgba(136, 19, 55, 0.08);
-  --shadow-card-hover: 0 2px 4px rgba(136, 19, 55, 0.08), 0 12px 32px rgba(136, 19, 55, 0.14);
+  --shadow-card: 0 1px 2px rgba(46, 16, 101, 0.06), 0 10px 28px rgba(76, 29, 149, 0.1);
+  --shadow-card-hover: 0 4px 10px rgba(46, 16, 101, 0.1), 0 16px 36px rgba(124, 58, 237, 0.18);
+  --shadow-glow: 0 8px 24px rgba(124, 58, 237, 0.35);
 
   --transition-fast: 150ms ease;
   --transition-base: 220ms ease;
@@ -46,12 +66,160 @@
 body {
   margin: 0;
   font-family: var(--font-body);
-  background: radial-gradient(circle at 50% 0%, #ffe4e8 0%, var(--color-background) 55%);
+  background: radial-gradient(circle at 50% -10%, #f0e2ff 0%, var(--color-background) 55%);
   background-attachment: fixed;
   color: var(--color-foreground);
   line-height: 1.55;
   font-size: 16px;
 }
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---------- Icono base (sprite via <use>) ---------- */
+
+.icono {
+  width: 1.2em;
+  height: 1.2em;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icono--relleno {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--color-hero-deep) 0%, var(--color-hero-mid) 48%, var(--color-hero-vivid) 100%);
+  color: var(--color-on-dark);
+  padding: 2.75rem 1.25rem 3.5rem;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  text-align: center;
+}
+
+.hero__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(48px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hero__blob--1 {
+  width: 260px;
+  height: 260px;
+  top: -90px;
+  left: -70px;
+  background: var(--color-secondary);
+  animation: flotar 14s ease-in-out infinite;
+}
+
+.hero__blob--2 {
+  width: 220px;
+  height: 220px;
+  bottom: -110px;
+  right: -60px;
+  background: var(--color-primary);
+  animation: flotar 18s ease-in-out infinite reverse;
+}
+
+.hero__blob--3 {
+  width: 160px;
+  height: 160px;
+  top: 40%;
+  right: 8%;
+  background: var(--color-accent);
+  opacity: 0.25;
+  animation: flotar 11s ease-in-out infinite;
+}
+
+@keyframes flotar {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(14px, -18px) scale(1.06); }
+}
+
+.hero__contenido {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2.15rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.85rem;
+  color: var(--color-foreground);
+  text-align: center;
+}
+
+/* Dentro del hero oscuro el titulo necesita el par de color claro + su
+   propia animacion de entrada; fuera de el (p.ej. admin.ejs, que no tiene
+   .hero) el h1 usa el color oscuro de arriba sobre el fondo claro.
+
+   El h1 de index.ejs pasó de una sola marca ("Integra CODE") a las 4
+   organizaciones separadas por "x" — un string ~4x mas largo. Con Righteous
+   (display, trazo ancho) al mismo tamaño que antes desbordaba/se cortaba en
+   320-375px. Se achica el tamaño, se ajusta line-height/letter-spacing para
+   que respire en 3 lineas en mobile, y se deja que el navegador reparta el
+   salto de linea solo (text-wrap: balance, con fallback silencioso a wrap
+   normal donde no hay soporte) en vez de forzar <br> fijos — así el texto
+   accesible sigue siendo exactamente la cadena completa, sin fragmentar. */
+.hero h1 {
+  color: var(--color-on-dark);
+  animation: aparecer 0.6s ease 0.08s both;
+  font-size: 1.5rem;
+  line-height: 1.35;
+  letter-spacing: 0.005em;
+  word-spacing: 0.06em;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+.hero__cupos {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: var(--color-on-dark-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  animation: aparecer 0.6s ease 0.16s both;
+}
+
+.hero__cupos .icono {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-accent);
+}
+
+.hero__cupos strong {
+  color: var(--color-on-dark);
+  font-weight: 700;
+}
+
+/* ---------- Layout general ---------- */
 
 .contenedor {
   max-width: 480px;
@@ -59,72 +227,165 @@ body {
   padding: 2.5rem 1.25rem 4rem;
 }
 
-h1 {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 2.1rem;
-  line-height: 1.15;
-  letter-spacing: 0.01em;
-  margin: 0 0 1.75rem;
-  color: var(--color-primary);
-  text-align: center;
+/* Cuando el hero ya precede al contenido (index.ejs), su propio padding
+   inferior hace de separador — evita duplicar el espacio arriba.
+   admin.ejs no tiene .hero, asi que conserva el padding-top de arriba. */
+.hero + .contenedor {
+  padding-top: 2rem;
 }
 
 h2 {
   font-family: var(--font-body);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.05rem;
-  margin: 0 0 0.65rem;
+  margin: 0 0 0.85rem;
   color: var(--color-foreground);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+h2 .icono {
+  color: var(--color-primary);
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 section {
-  background: var(--color-card);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 1.15rem 1.25rem;
-  margin-bottom: 1.1rem;
+  padding: 1.25rem 1.3rem;
+  margin-bottom: 1.15rem;
   box-shadow: var(--shadow-card);
+  animation: aparecer 0.5s ease both;
 }
 
-.precios ul {
+main.contenedor > *:nth-child(1) { animation-delay: 0.05s; }
+main.contenedor > *:nth-child(2) { animation-delay: 0.1s; }
+main.contenedor > *:nth-child(3) { animation-delay: 0.15s; }
+main.contenedor > *:nth-child(4) { animation-delay: 0.2s; }
+main.contenedor > *:nth-child(5) { animation-delay: 0.25s; }
+main.contenedor > *:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Precios ---------- */
+
+.precios-lista {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.precios-item {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 1rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
 }
 
-.precios li {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 0.35rem 0;
-  font-size: 1rem;
-  border-bottom: 1px dashed var(--color-border);
+.precios-item__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
-.precios li:last-child {
-  border-bottom: none;
+.precios-item__nombre {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-foreground);
 }
 
-.precios strong {
+.precios-item__precio {
   color: var(--color-primary);
-  font-size: 1.05rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* ---------- Instrucciones de pago ---------- */
+
+.instrucciones-pago__cuerpo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.instrucciones-pago__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-primary));
+  color: #fff;
+}
+
+.instrucciones-pago p {
+  margin: 0;
 }
 
 .instrucciones-pago strong {
-  color: var(--color-accent);
+  color: var(--color-secondary);
   font-weight: 700;
 }
 
+/* ---------- Alertas ---------- */
+
 .alerta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
   padding: 0.95rem 1.1rem;
   border-radius: var(--radius-sm);
   margin-bottom: 1.1rem;
   font-size: 0.95rem;
   border: 1px solid transparent;
+  animation: aparecer 0.4s ease both;
+}
+
+/* .alerta { display: flex } gana por especificidad al estilo por defecto del
+   navegador para [hidden] (ambos son 0-1-0, pero un author style siempre le
+   gana a la hoja de estilos del user agent) — sin esto, #mensaje-exito y
+   #mensaje-error-general (ocultos con el atributo `hidden` en el HTML hasta
+   que JS los necesita) quedaban visibles vacíos todo el tiempo. */
+.alerta[hidden] {
+  display: none;
+}
+
+.alerta::before {
+  content: "";
+  flex-shrink: 0;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-top: 0.1rem;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .alerta-agotado {
@@ -133,10 +394,18 @@ section {
   border-color: #fecaca;
 }
 
+.alerta-agotado::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f1d1d' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 21.5 20h-19z'/%3E%3Cpath d='M12 9.5v4.5'/%3E%3Ccircle cx='12' cy='17' r='0.9' fill='%237f1d1d' stroke='none'/%3E%3C/svg%3E");
+}
+
 .alerta-exito {
   background: var(--color-success-bg);
   color: var(--color-success-fg);
   border-color: #bbf7d0;
+}
+
+.alerta-exito::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23065f46' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8.5 12.5l2.3 2.3 4.7-5.2'/%3E%3C/svg%3E");
 }
 
 .alerta-error {
@@ -145,24 +414,47 @@ section {
   border-color: #fecaca;
 }
 
+.alerta-error::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f1d1d' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 8v5'/%3E%3Ccircle cx='12' cy='15.5' r='0.9' fill='%237f1d1d' stroke='none'/%3E%3C/svg%3E");
+}
+
+/* ---------- Formulario ---------- */
+
 form {
-  background: var(--color-card);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 1.35rem;
+  padding: 1.5rem 1.35rem;
   box-shadow: var(--shadow-card);
+  animation: aparecer 0.5s ease both;
 }
 
 .campo {
-  margin-bottom: 1.15rem;
+  margin-bottom: 1.25rem;
 }
 
-label {
-  display: block;
+.campo--fieldset {
+  border: 0;
+  padding: 0;
+}
+
+label,
+legend {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-weight: 600;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
+  padding: 0;
   font-size: 0.92rem;
   color: var(--color-foreground);
+}
+
+label .icono,
+legend .icono {
+  color: var(--color-primary);
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 input[type="text"],
@@ -182,12 +474,31 @@ select {
 }
 
 input[type="file"] {
-  padding: 0.55rem 0.6rem;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--color-primary-hover);
 }
 
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23881337'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%237c3aed'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1.1rem;
@@ -205,14 +516,14 @@ input::placeholder {
 
 input:hover,
 select:hover {
-  border-color: var(--color-secondary);
+  border-color: var(--color-border-strong);
 }
 
 input:focus-visible,
 select:focus-visible {
   outline: none;
   border-color: var(--color-ring);
-  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.18);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
 }
 
 .opciones-entrada {
@@ -225,8 +536,7 @@ select:focus-visible {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.85rem;
   min-height: 44px;
   padding: 0.85rem 1rem;
   border: 1.5px solid var(--color-border);
@@ -235,7 +545,7 @@ select:focus-visible {
   font-size: 0.98rem;
   cursor: pointer;
   background: #fff;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
 }
 
 .tarjeta-entrada input {
@@ -245,50 +555,95 @@ select:focus-visible {
   height: 1px;
 }
 
+.tarjeta-entrada__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  color: var(--color-primary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.tarjeta-entrada__texto {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tarjeta-entrada__nombre {
+  color: var(--color-foreground);
+}
+
 .tarjeta-entrada__precio {
   color: var(--color-primary);
   font-weight: 700;
 }
 
 .tarjeta-entrada:hover {
-  border-color: var(--color-secondary);
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
 }
 
 .tarjeta-entrada:has(input:focus-visible) {
-  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.18);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
 }
 
 .tarjeta-entrada:has(input:checked) {
   border-color: var(--color-primary);
-  background: var(--color-background);
+  background: var(--color-surface-alt);
   box-shadow: 0 0 0 2px var(--color-primary) inset;
 }
 
+.tarjeta-entrada:has(input:checked) .tarjeta-entrada__icono {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
 .error-campo {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   color: var(--color-destructive);
   font-size: 0.82rem;
   margin: 0.35rem 0 0;
   min-height: 1em;
 }
 
+.error-campo:not(:empty)::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.95rem;
+  height: 0.95rem;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dc2626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 8v5'/%3E%3Ccircle cx='12' cy='15.5' r='0.9' fill='%23dc2626' stroke='none'/%3E%3C/svg%3E");
+}
+
 button[type="submit"] {
   width: 100%;
-  min-height: 48px;
-  padding: 0.8rem;
+  min-height: 50px;
+  padding: 0.85rem;
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
   color: var(--color-on-primary);
   font-family: var(--font-body);
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-size: 1.04rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
+  box-shadow: var(--shadow-glow);
+  transition: transform var(--transition-fast), box-shadow var(--transition-base), filter var(--transition-fast);
 }
 
 button[type="submit"]:hover:not(:disabled) {
-  background: #be123c;
-  box-shadow: var(--shadow-card-hover);
+  filter: brightness(1.06);
+  box-shadow: 0 10px 28px rgba(124, 58, 237, 0.45);
+  transform: translateY(-1px);
 }
 
 button[type="submit"]:active:not(:disabled) {
@@ -297,26 +652,37 @@ button[type="submit"]:active:not(:disabled) {
 
 button[type="submit"]:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.28);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.32);
 }
 
 button[type="submit"]:disabled {
-  background: var(--color-secondary);
+  background: var(--color-border-strong);
+  box-shadow: none;
   cursor: not-allowed;
 }
 
 .aforo-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   text-align: center;
   color: var(--color-muted-foreground);
   font-size: 0.85rem;
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
 }
 
-/* Vista admin */
+.aforo-info .icono {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---------- Vista admin ---------- */
+
 .subtitulo {
   color: var(--color-muted-foreground);
   font-size: 0.9rem;
-  margin: -1rem 0 1.5rem;
+  margin: -0.5rem 0 1.5rem;
   text-align: center;
 }
 
@@ -334,27 +700,39 @@ button[type="submit"]:disabled {
 }
 
 .tabla-admin th {
-  background: var(--color-background);
+  background: var(--color-surface-alt);
   color: var(--color-foreground);
   font-weight: 600;
 }
 
 .tabla-admin tr:hover td {
-  background: #fff7f8;
+  background: #faf5ff;
 }
 
 @media (min-width: 640px) {
-  .contenedor {
-    padding-top: 3.5rem;
+  .hero + .contenedor {
+    padding-top: 0;
+  }
+
+  .hero {
+    padding: 3.5rem 1.5rem 4.25rem;
   }
 
   h1 {
-    font-size: 2.5rem;
+    font-size: 2.6rem;
+  }
+
+  .hero h1 {
+    font-size: 2.1rem;
+    line-height: 1.3;
+    max-width: 460px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
   }
 }

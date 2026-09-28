@@ -66,7 +66,7 @@ function crearApp(dbConexion) {
   app.get('/', async (req, res) => {
     const estado = await obtenerEstado(dbConexion);
     res.render('index', {
-      titulo: 'Integración Universitaria — Entradas',
+      titulo: 'Integra CODE — Entradas',
       agotado: estado.agotado,
       totalRegistrados: estado.total_registrados,
       aforoMaximo: estado.aforo_maximo,
