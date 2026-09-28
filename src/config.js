@@ -53,9 +53,10 @@ const config = {
     apiKey: process.env.CLOUDINARY_API_KEY || '',
     apiSecret: process.env.CLOUDINARY_API_SECRET || '',
   },
-  // Dato fijo del negocio (no es secreto ni ambiguo): un unico lugar de
-  // edicion si el numero de Yape cambiara, sin ensuciar .env.
+  // Datos fijos del negocio (no son secretos ni ambiguos): un unico lugar de
+  // edicion si cambiaran, sin ensuciar .env.
   yapeNumero: '+51 908 589 569',
+  yapeTitular: 'GianPietro Palacios',
 };
 
 module.exports = config;

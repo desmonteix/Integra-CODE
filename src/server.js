@@ -73,6 +73,7 @@ function crearApp(dbConexion) {
       disponibles: estado.disponibles,
       precios: estado.precios,
       yapeNumero: config.yapeNumero,
+      yapeTitular: config.yapeTitular,
     });
   });
 
