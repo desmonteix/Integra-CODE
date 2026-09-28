@@ -242,6 +242,18 @@ rutas (`/`, `/admin`, `/api/*`, `/css/*`, `/js/*`) hacia esa función, y le indi
 empaquete `src/**` junto con ella — sin eso, las vistas EJS y los archivos estáticos (leídos de
 disco en runtime, no via `require`) no estarían presentes en el deploy.
 
+**`vercel.json` usa el formato clásico `builds` + `routes` a propósito, no `rewrites` +
+`functions`.** Con `rewrites`/`functions`, Vercel intenta "adivinar" el framework/entry point del
+proyecto — y al detectar `"start": "node src/server.js"` en `package.json`, intentó cargar
+`src/server.js` directamente como la función (ignorando `api/index.js` y el rewrite), lo cual
+falló con `500 FUNCTION_INVOCATION_FAILED` / *"Invalid export found... the default export must be
+a function or server"*, porque `src/server.js` exporta a propósito `{ crearApp, main }` (un
+objeto, no la app en sí — así los tests pueden armar la app con una conexión de DB inyectada) en
+vez de la app de Express directamente. `builds`/`routes` es explícito y determinista: le dice a
+Vercel "la única función es `api/index.js`, construida con `@vercel/node`, todo el tráfico va
+ahí" — sin dejar espacio a que su detección automática elija otro archivo por su cuenta. No
+cambiar a `rewrites`/`functions` sin volver a probar un deploy real primero.
+
 Pasos para desplegar:
 
 1. En el proyecto de Vercel, agregar las variables de entorno (`TURSO_DATABASE_URL`,
