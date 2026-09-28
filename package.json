@@ -12,7 +12,8 @@
     "test": "node --test tests/**/*.test.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
+    "@libsql/client": "^0.14.0",
+    "cloudinary": "^2.5.1",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
     "express": "^4.21.0",

@@ -167,7 +167,8 @@ label {
 
 input[type="text"],
 input[type="email"],
-input[type="file"] {
+input[type="file"],
+select {
   width: 100%;
   min-height: 44px;
   padding: 0.65rem 0.8rem;
@@ -184,15 +185,31 @@ input[type="file"] {
   padding: 0.55rem 0.6rem;
 }
 
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23881337'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.1rem;
+  padding-right: 2.25rem;
+  cursor: pointer;
+}
+
+select:invalid {
+  color: var(--color-muted-foreground);
+}
+
 input::placeholder {
   color: var(--color-muted-foreground);
 }
 
-input:hover {
+input:hover,
+select:hover {
   border-color: var(--color-secondary);
 }
 
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: none;
   border-color: var(--color-ring);
   box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.18);

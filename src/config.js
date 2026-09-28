@@ -2,8 +2,15 @@
 // Lee las variables de entorno (.env) y expone un objeto de configuracion
 // tipado/con defaults sanos. Ningun otro modulo debe leer process.env
 // directamente: todo pasa por aca para tener un unico lugar de verdad.
+//
+// IMPORTANTE: este modulo NO valida ni lanza si faltan TURSO_*/CLOUDINARY_*
+// (a diferencia de lo que haria una validacion fail-fast). Esas variables
+// son obligatorias en produccion, pero la validacion fail-fast vive en el
+// bootstrap async de src/server.js, no aca ni en src/db/db.js a nivel de
+// modulo: si este archivo lanzara al importarse, cualquier test que solo
+// necesite `crearConexion(':memory:')` fallaria igual al hacer
+// `require('../config')` transitivamente, sin usar ninguna credencial real.
 
-const path = require('path');
 require('dotenv').config();
 
 function parseIntConDefault(valor, porDefecto) {
@@ -39,7 +46,13 @@ const config = {
   webhookTimeoutMs: parseIntConDefault(process.env.WEBHOOK_TIMEOUT_MS, 3000),
   webhookMaxRetries: parseIntConDefault(process.env.WEBHOOK_MAX_RETRIES, 1),
   adminKey: process.env.ADMIN_KEY || '',
-  dbPath: process.env.DB_PATH || path.join('.', 'data', 'integracion.db'),
+  tursoUrl: process.env.TURSO_DATABASE_URL || '',
+  tursoAuthToken: process.env.TURSO_AUTH_TOKEN || '',
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
   // Dato fijo del negocio (no es secreto ni ambiguo): un unico lugar de
   // edicion si el numero de Yape cambiara, sin ensuciar .env.
   yapeNumero: '+51 908 589 569',

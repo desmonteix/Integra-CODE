@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var mensajeExito = document.getElementById('mensaje-exito');
   var mensajeErrorGeneral = document.getElementById('mensaje-error-general');
 
-  var CAMPOS = ['nombre_completo', 'dni', 'celular', 'correo', 'tipo_entrada', 'comprobante'];
+  var CAMPOS = ['nombre_completo', 'dni', 'celular', 'correo', 'organizacion', 'tipo_entrada', 'comprobante'];
   var TEXTO_BOTON_DEFAULT = boton.textContent;
 
   function limpiarErrores() {

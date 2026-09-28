@@ -4,6 +4,7 @@
 // src/db/db.js). Funcion pura: recibe req.body, retorna un resultado.
 
 const TIPOS_ENTRADA_VALIDOS = ['solo_entrada', 'entrada_bus'];
+const ORGANIZACIONES_VALIDAS = ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi'];
 const REGEX_SOLO_DIGITOS = /^\d+$/;
 const REGEX_EMAIL_BASICO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,6 +28,7 @@ function validarRegistro(body) {
   const celular = (datos.celular || '').trim();
   const correo = (datos.correo || '').trim();
   const tipoEntrada = datos.tipo_entrada;
+  const organizacion = datos.organizacion;
 
   if (!nombreCompleto) {
     detalles.push('nombre_completo es requerido');
@@ -62,12 +64,16 @@ function validarRegistro(body) {
     detalles.push('tipo_entrada debe ser "solo_entrada" o "entrada_bus"');
   }
 
-  if (correo) {
-    if (correo.length > CORREO_LONGITUD_MAX) {
-      detalles.push(`correo no debe superar ${CORREO_LONGITUD_MAX} caracteres`);
-    } else if (!REGEX_EMAIL_BASICO.test(correo)) {
-      detalles.push('correo no tiene un formato valido');
-    }
+  if (!correo) {
+    detalles.push('correo es requerido');
+  } else if (correo.length > CORREO_LONGITUD_MAX) {
+    detalles.push(`correo no debe superar ${CORREO_LONGITUD_MAX} caracteres`);
+  } else if (!REGEX_EMAIL_BASICO.test(correo)) {
+    detalles.push('correo no tiene un formato valido');
+  }
+
+  if (!organizacion || !ORGANIZACIONES_VALIDAS.includes(organizacion)) {
+    detalles.push(`organizacion debe ser una de: ${ORGANIZACIONES_VALIDAS.join(', ')}`);
   }
 
   if (detalles.length > 0) {

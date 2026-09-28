@@ -46,9 +46,21 @@
         </div>
 
         <div class="campo">
-          <label for="correo">Correo (opcional)</label>
-          <input type="email" id="correo" name="correo" />
+          <label for="correo">Correo</label>
+          <input type="email" id="correo" name="correo" required />
           <p class="error-campo" data-error-para="correo"></p>
+        </div>
+
+        <div class="campo">
+          <label for="organizacion">Organización</label>
+          <select id="organizacion" name="organizacion" required>
+            <option value="" disabled selected>Selecciona tu organización</option>
+            <option value="CODE">CODE</option>
+            <option value="Tu Pata">Tu Pata</option>
+            <option value="Prog REA">Prog REA</option>
+            <option value="Kulture Wasi">Kulture Wasi</option>
+          </select>
+          <p class="error-campo" data-error-para="organizacion"></p>
         </div>
 
         <div class="campo">

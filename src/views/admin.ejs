@@ -16,9 +16,11 @@
             <tr>
               <th>ID</th>
               <th>Nombre completo</th>
+              <th>Organización</th>
               <th>Tipo de entrada</th>
               <th>Fecha</th>
               <th>Webhook enviado</th>
+              <th>Comprobante</th>
             </tr>
           </thead>
           <tbody>
@@ -26,9 +28,17 @@
               <tr>
                 <td><%= registro.id %></td>
                 <td><%= registro.nombre_completo %></td>
+                <td><%= registro.organizacion %></td>
                 <td><%= registro.tipo_entrada === 'entrada_bus' ? 'Entrada + Bus' : 'Solo entrada' %></td>
                 <td><%= registro.creado_en %></td>
                 <td><%= registro.webhook_enviado ? 'Sí' : 'No' %></td>
+                <td>
+                  <% if (registro.comprobante_url) { %>
+                    <a href="<%= registro.comprobante_url %>" target="_blank" rel="noopener noreferrer">Ver comprobante</a>
+                  <% } else { %>
+                    —
+                  <% } %>
+                </td>
               </tr>
             <% }); %>
           </tbody>

@@ -9,6 +9,7 @@ function datosValidos(overrides = {}) {
     dni: '12345678',
     celular: '987654321',
     correo: 'juana@example.com',
+    organizacion: 'CODE',
     tipo_entrada: 'solo_entrada',
     ...overrides,
   };
@@ -19,9 +20,30 @@ test('acepta un registro con todos los campos validos', () => {
   assert.deepEqual(resultado, { valido: true });
 });
 
-test('acepta correo vacio (opcional)', () => {
+test('rechaza correo vacio (ahora es obligatorio)', () => {
   const resultado = validarRegistro(datosValidos({ correo: '' }));
-  assert.equal(resultado.valido, true);
+  assert.equal(resultado.valido, false);
+  assert.ok(resultado.detalles.some((d) => d.includes('correo')));
+});
+
+test('rechaza cuando falta organizacion', () => {
+  const { organizacion, ...sinOrganizacion } = datosValidos();
+  const resultado = validarRegistro(sinOrganizacion);
+  assert.equal(resultado.valido, false);
+  assert.ok(resultado.detalles.some((d) => d.includes('organizacion')));
+});
+
+test('rechaza organizacion con un valor no permitido', () => {
+  const resultado = validarRegistro(datosValidos({ organizacion: 'Otra Organizacion' }));
+  assert.equal(resultado.valido, false);
+  assert.ok(resultado.detalles.some((d) => d.includes('organizacion')));
+});
+
+test('acepta cada una de las 4 organizaciones validas', () => {
+  for (const org of ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi']) {
+    const resultado = validarRegistro(datosValidos({ organizacion: org }));
+    assert.equal(resultado.valido, true, `deberia aceptar organizacion="${org}"`);
+  }
 });
 
 test('rechaza cuando falta tipo_entrada', () => {
