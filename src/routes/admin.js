@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const config = require('../config');
+const { ORGANIZACIONES_VALIDAS } = require('../middleware/validarRegistro');
 
 // Confirmado en auditoria: 30 intentos consecutivos de ADMIN_KEY incorrecta
 // se procesaron en segundos sin ningun throttling ni bloqueo — la
@@ -60,12 +61,21 @@ function crearRouterAdmin(dbConexion) {
     const totalRegistrados = await dbConexion.contarRegistros();
     const disponibles = Math.max(0, config.maxAforo - totalRegistrados);
 
+    // Desglose de registrados por organizacion, en el mismo orden que el
+    // <select> del formulario publico (src/views/index.ejs), para que el
+    // organizador vea de un vistazo de donde viene la gente.
+    const conteoOrganizaciones = ORGANIZACIONES_VALIDAS.map((organizacion) => ({
+      organizacion,
+      cantidad: registros.filter((r) => r.organizacion === organizacion).length,
+    }));
+
     res.render('admin', {
       titulo: 'Panel del organizador',
       registros: registros,
       totalRegistrados: totalRegistrados,
       aforoMaximo: config.maxAforo,
       disponibles: disponibles,
+      conteoOrganizaciones: conteoOrganizaciones,
     });
   });
 

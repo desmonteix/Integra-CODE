@@ -878,27 +878,120 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
   text-align: center;
 }
 
+/* La tabla de registros tiene 6 columnas: en pantallas grandes (el
+   organizador la mira casi siempre desde una compu) aprovecha mas ancho
+   que el resto de la app, en vez de quedar apretada en 480px. */
+.contenedor--admin {
+  max-width: 480px;
+}
+
+@media (min-width: 900px) {
+  .contenedor--admin {
+    max-width: 880px;
+  }
+}
+
+.resumen-aforo__linea {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.conteo-organizaciones {
+  list-style: none;
+  margin: 0;
+  padding: 1rem 0 0;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.conteo-organizaciones__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.conteo-organizaciones__icono {
+  display: inline-flex;
+  color: var(--color-primary);
+}
+
+.conteo-organizaciones__icono .icono {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.conteo-organizaciones__nombre {
+  color: var(--color-foreground);
+  font-weight: 500;
+}
+
+.conteo-organizaciones__cantidad {
+  color: var(--color-primary);
+  font-weight: 700;
+  min-width: 1.2em;
+  text-align: right;
+}
+
+.tabla-admin__envoltura {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
 .tabla-admin {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
 
 .tabla-admin th,
 .tabla-admin td {
-  border: 1px solid var(--color-border);
-  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.6rem 0.75rem;
   text-align: left;
+  vertical-align: middle;
 }
 
 .tabla-admin th {
   background: var(--color-surface-alt);
   color: var(--color-foreground);
-  font-weight: 600;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tabla-admin tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .tabla-admin tr:hover td {
   background: #faf5ff;
+}
+
+.tabla-admin__col-id {
+  width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+}
+
+.tabla-admin__col-fecha {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+}
+
+.tabla-admin__vacio {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--color-muted-foreground);
 }
 
 @media (min-width: 640px) {

@@ -90,3 +90,4 @@ function validarRegistro(body) {
 }
 
 module.exports = validarRegistro;
+module.exports.ORGANIZACIONES_VALIDAS = ORGANIZACIONES_VALIDAS;

@@ -1,37 +1,62 @@
 <%- include('partials/head') %>
-  <main class="contenedor">
+  <%- include('partials/iconos') %>
+  <main class="contenedor contenedor--admin">
     <h1>Panel del organizador</h1>
     <p class="subtitulo">Vista de solo lectura — sin acciones de edición o borrado.</p>
 
     <section>
-      <h2>Resumen de aforo</h2>
-      <p><%= totalRegistrados %> / <%= aforoMaximo %> registrados — <%= disponibles %> cupo(s) disponible(s).</p>
+      <h2>
+        <svg class="icono" aria-hidden="true"><use href="#icono-ticket"></use></svg>
+        Resumen de aforo
+      </h2>
+      <p class="resumen-aforo__linea">
+        <strong><%= totalRegistrados %></strong> / <%= aforoMaximo %> registrados —
+        <strong><%= disponibles %></strong> cupo(s) disponible(s)
+      </p>
+
+      <ul class="conteo-organizaciones">
+        <% conteoOrganizaciones.forEach(function (item) { %>
+          <li class="conteo-organizaciones__item">
+            <span class="conteo-organizaciones__icono" aria-hidden="true">
+              <svg class="icono"><use href="#icono-edificio"></use></svg>
+            </span>
+            <span class="conteo-organizaciones__nombre"><%= item.organizacion %></span>
+            <span class="conteo-organizaciones__cantidad"><%= item.cantidad %></span>
+          </li>
+        <% }); %>
+      </ul>
     </section>
 
     <section>
-      <h2>Registros (<%= registros.length %>)</h2>
-      <div style="overflow-x: auto;">
+      <h2>
+        <svg class="icono" aria-hidden="true"><use href="#icono-usuario"></use></svg>
+        Registros (<%= registros.length %>)
+      </h2>
+      <div class="tabla-admin__envoltura">
         <table class="tabla-admin">
           <thead>
             <tr>
-              <th>ID</th>
+              <th class="tabla-admin__col-id">ID</th>
               <th>Nombre completo</th>
               <th>Organización</th>
               <th>Tipo de entrada</th>
               <th>Fecha</th>
-              <th>Webhook enviado</th>
               <th>Comprobante</th>
             </tr>
           </thead>
           <tbody>
+            <% if (registros.length === 0) { %>
+              <tr>
+                <td colspan="6" class="tabla-admin__vacio">Todavía no hay registros.</td>
+              </tr>
+            <% } %>
             <% registros.forEach(function (registro) { %>
               <tr>
-                <td><%= registro.id %></td>
+                <td class="tabla-admin__col-id"><%= registro.id %></td>
                 <td><%= registro.nombre_completo %></td>
                 <td><%= registro.organizacion %></td>
                 <td><%= registro.tipo_entrada === 'entrada_bus' ? 'Entrada + Bus' : 'Solo entrada' %></td>
-                <td><%= registro.creado_en %></td>
-                <td><%= registro.webhook_enviado ? 'Sí' : 'No' %></td>
+                <td class="tabla-admin__col-fecha"><%= registro.creado_en %></td>
                 <td>
                   <% if (registro.comprobante_url) { %>
                     <a href="<%= registro.comprobante_url %>" target="_blank" rel="noopener noreferrer">Ver comprobante</a>
