@@ -40,8 +40,8 @@ test('rechaza organizacion con un valor no permitido', () => {
   assert.ok(resultado.detalles.some((d) => d.includes('organizacion')));
 });
 
-test('acepta cada una de las 4 organizaciones validas', () => {
-  for (const org of ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi']) {
+test('acepta cada una de las 5 organizaciones validas', () => {
+  for (const org of ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi', 'Externo']) {
     const resultado = validarRegistro(datosValidos({ organizacion: org }));
     assert.equal(resultado.valido, true, `deberia aceptar organizacion="${org}"`);
   }

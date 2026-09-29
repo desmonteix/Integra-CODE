@@ -159,6 +159,7 @@
             <option value="Tu Pata">Tu Pata</option>
             <option value="Prog REA">Prog REA</option>
             <option value="Kulture Wasi">Kulture Wasi</option>
+            <option value="Externo">Externo</option>
           </select>
           <p class="error-campo" data-error-para="organizacion"></p>
         </div>
@@ -205,13 +206,15 @@
         <div class="campo">
           <label class="campo-checkbox" for="acepta_terminos">
             <input type="checkbox" id="acepta_terminos" name="acepta_terminos" required />
-            Acepto los Términos y Condiciones
+            Acepto los <button type="button" class="enlace-terminos" id="abrir-terminos">Términos y Condiciones</button>
           </label>
           <p class="error-campo" data-error-para="acepta_terminos"></p>
         </div>
 
         <button type="submit" id="boton-enviar">Registrarme</button>
       </form>
+
+      <%- include('partials/modal-terminos') %>
     <% } %>
   </main>
 

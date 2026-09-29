@@ -16,6 +16,33 @@ document.addEventListener('DOMContentLoaded', function () {
   var CAMPOS = ['nombre_completo', 'dni', 'celular', 'correo', 'organizacion', 'tipo_entrada', 'comprobante', 'acepta_terminos'];
   var TEXTO_BOTON_DEFAULT = boton.textContent;
 
+  // Popup de Terminos y Condiciones (<dialog> nativo, sin libreria de modal).
+  // El boton "Terminos y Condiciones" vive DENTRO del <label> del checkbox a
+  // proposito: un <button> es un descendiente interactivo, asi que un click
+  // ahi NO dispara el toggle del checkbox asociado al label (comportamiento
+  // estandar del navegador), solo abre el popup.
+  var botonAbrirTerminos = document.getElementById('abrir-terminos');
+  var modalTerminos = document.getElementById('modal-terminos');
+  if (botonAbrirTerminos && modalTerminos) {
+    botonAbrirTerminos.addEventListener('click', function () {
+      modalTerminos.showModal();
+    });
+
+    modalTerminos.querySelectorAll('[data-cerrar-terminos]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        modalTerminos.close();
+      });
+    });
+
+    // Cerrar al hacer click en el "::backdrop": si el click cae justo sobre
+    // el <dialog> (y no sobre alguno de sus hijos), el target es el dialog.
+    modalTerminos.addEventListener('click', function (evento) {
+      if (evento.target === modalTerminos) {
+        modalTerminos.close();
+      }
+    });
+  }
+
   function limpiarErrores() {
     CAMPOS.forEach(function (campo) {
       var p = form.querySelector('[data-error-para="' + campo + '"]');

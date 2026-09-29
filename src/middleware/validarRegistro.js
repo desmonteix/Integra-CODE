@@ -4,7 +4,7 @@
 // src/db/db.js). Funcion pura: recibe req.body, retorna un resultado.
 
 const TIPOS_ENTRADA_VALIDOS = ['solo_entrada', 'entrada_bus'];
-const ORGANIZACIONES_VALIDAS = ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi'];
+const ORGANIZACIONES_VALIDAS = ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi', 'Externo'];
 const REGEX_SOLO_DIGITOS = /^\d+$/;
 const REGEX_EMAIL_BASICO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
