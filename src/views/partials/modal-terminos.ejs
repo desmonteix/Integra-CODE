@@ -1,12 +1,16 @@
 <dialog id="modal-terminos" class="modal-terminos" aria-labelledby="modal-terminos-titulo">
-  <div class="modal-terminos__cabecera">
-    <h2 id="modal-terminos-titulo">Términos y Condiciones de Participación</h2>
-    <button type="button" class="modal-terminos__cerrar" data-cerrar-terminos aria-label="Cerrar">
-      <svg class="icono" aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
-  </div>
+  <!-- method="dialog": un boton type="submit" dentro de este form cierra el
+       <dialog> de forma NATIVA (sin JS, sin listeners que puedan fallar).
+       Es el mecanismo estandar y mas robusto para botones de cierre. -->
+  <form method="dialog" class="modal-terminos__marco">
+    <div class="modal-terminos__cabecera">
+      <h2 id="modal-terminos-titulo">Términos y Condiciones de Participación</h2>
+      <button type="submit" class="modal-terminos__cerrar" aria-label="Cerrar">
+        <svg class="icono" aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
 
-  <div class="modal-terminos__cuerpo">
+    <div class="modal-terminos__cuerpo">
     <h3>Preámbulo</h3>
     <p>El presente documento contiene los Términos y Condiciones de Participación (en adelante, los "Términos y Condiciones") que regulan la asistencia y permanencia de toda persona (en adelante, el "Asistente") en el evento privado universitario organizado en forma conjunta por las organizaciones estudiantiles PROGREA, CAP UP, TUPATA y CODE UP (en adelante y de forma conjunta, los "Organizadores").</p>
     <p>El evento tiene naturaleza estrictamente privada y se encuentra dirigido, de manera principal, a estudiantes universitarios convocados por los Organizadores. La adquisición de la entrada, la inscripción en el evento o el ingreso al recinto en el que este se desarrolle implican, por parte del Asistente, la aceptación libre, expresa, informada e incondicional de la totalidad de las cláusulas contenidas en el presente documento, así como el compromiso de cumplir con las disposiciones aplicables del ordenamiento jurídico peruano.</p>
@@ -169,9 +173,10 @@
     <p>20.1. El Asistente declara haber leído íntegramente los presentes Términos y Condiciones, haber comprendido su contenido y aceptarlos de manera libre, expresa e incondicional, obligándose a cumplirlos durante toda su permanencia en el evento.</p>
     <p>20.2. El Asistente declara, asimismo, haber sido debidamente informado del tratamiento que los Organizadores efectuarán respecto de sus datos personales, en los términos previstos por la Cláusula Undécima, y otorga su consentimiento para dicho tratamiento en los términos allí establecidos.</p>
     <p>20.3. Los presentes Términos y Condiciones se encuentran a disposición permanente del Asistente en los canales oficiales de los Organizadores, para su consulta y verificación en cualquier momento.</p>
-  </div>
+    </div>
 
-  <div class="modal-terminos__pie">
-    <button type="button" class="modal-terminos__boton-entendido" data-cerrar-terminos>Entendido, cerrar</button>
-  </div>
+    <div class="modal-terminos__pie">
+      <button type="submit" class="modal-terminos__boton-entendido">Entendido, cerrar</button>
+    </div>
+  </form>
 </dialog>

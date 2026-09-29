@@ -20,18 +20,17 @@ document.addEventListener('DOMContentLoaded', function () {
   // El boton "Terminos y Condiciones" vive DENTRO del <label> del checkbox a
   // proposito: un <button> es un descendiente interactivo, asi que un click
   // ahi NO dispara el toggle del checkbox asociado al label (comportamiento
-  // estandar del navegador), solo abre el popup.
+  // estandar del navegador), solo abre el popup. Cerrar el popup (boton X,
+  // boton "Entendido") NO depende de JS: son botones type="submit" dentro
+  // de un <form method="dialog"> (ver partials/modal-terminos.ejs), que el
+  // navegador cierra de forma nativa sin listeners que puedan fallar. Solo
+  // hace falta JS para abrirlo y para cerrar al hacer click afuera
+  // (backdrop), que no tiene mecanismo nativo en HTML.
   var botonAbrirTerminos = document.getElementById('abrir-terminos');
   var modalTerminos = document.getElementById('modal-terminos');
   if (botonAbrirTerminos && modalTerminos) {
     botonAbrirTerminos.addEventListener('click', function () {
       modalTerminos.showModal();
-    });
-
-    modalTerminos.querySelectorAll('[data-cerrar-terminos]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        modalTerminos.close();
-      });
     });
 
     // Cerrar al hacer click en el "::backdrop": si el click cae justo sobre

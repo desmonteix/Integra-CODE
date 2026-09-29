@@ -577,8 +577,14 @@ select:invalid {
   box-shadow: var(--shadow-card-hover);
   color: var(--color-foreground);
   overflow: hidden;
+}
+
+/* El <form method="dialog"> es ahora quien organiza cabecera/cuerpo/pie en
+   columna (el <dialog> en si solo se ocupa de tamaño/posicion/recorte). */
+.modal-terminos__marco {
   display: flex;
   flex-direction: column;
+  max-height: 85vh;
 }
 
 .modal-terminos::backdrop {
@@ -613,6 +619,14 @@ select:invalid {
 }
 
 .modal-terminos__cabecera h2 {
+  /* Sin este "color" explicito, la regla global "h2 { color: var(--color-
+     foreground) }" (para los <h2> de Precios / Como pagar, pensada para
+     texto oscuro sobre fondo claro) le gana por especificidad al color
+     heredado de .modal-terminos__cabecera — un h2 concreto SIEMPRE le gana
+     a un color heredado del padre, sin importar la especificidad de este
+     ultimo. Resultado real visto en produccion: texto casi negro sobre el
+     degradado morado oscuro del header, ilegible. */
+  color: var(--color-on-dark);
   margin: 0;
   font-family: var(--font-display);
   font-weight: 400;
