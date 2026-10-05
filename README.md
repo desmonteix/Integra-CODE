@@ -50,13 +50,14 @@ Copiar `.env.example` a `.env` y completar según corresponda:
 | Variable | Default si falta | Descripción |
 |---|---|---|
 | `PORT` | `3000` | Puerto HTTP del servidor Express |
-| `MAX_AFORO` | `150` | Límite duro de registros totales (ambos tipos de entrada sumados) |
-| `PRECIO_SOLO_ENTRADA` | `` (vacío → "Por confirmar") | Precio en soles de "Solo entrada" |
-| `PRECIO_ENTRADA_BUS` | `` (vacío → "Por confirmar") | Precio en soles de "Entrada + Bus" |
+| `MAX_AFORO` | `150` | Límite duro de registros totales (los tres tipos de entrada sumados). **No** es editable desde `/admin`: solo por variable de entorno |
+| `PRECIO_SOLO_ENTRADA` | `` (vacío → "Por confirmar") | Precio inicial en soles de "Solo entrada" |
+| `PRECIO_ENTRADA_BUS` | `` (vacío → "Por confirmar") | Precio inicial en soles de "Entrada + Bus" |
+| `PRECIO_SOLO_BUS` | `` (vacío → "Por confirmar") | Precio inicial en soles de "Solo bus" (bus sin entrada) |
 | `N8N_WEBHOOK_URL` | `` (vacío → webhook deshabilitado) | URL POST del webhook n8n |
 | `WEBHOOK_TIMEOUT_MS` | `3000` | Timeout por intento de envío al webhook |
 | `WEBHOOK_MAX_RETRIES` | `1` | Reintentos adicionales tras el primer intento fallido |
-| `ADMIN_KEY` | `` (vacío → `/admin` responde 404) | Secreto para acceder a la vista de solo lectura del organizador |
+| `ADMIN_KEY` | `` (vacío → `/admin` responde 404) | Secreto para acceder al panel del organizador (incluido `POST /admin/precios`) |
 | `TURSO_DATABASE_URL` | **obligatoria** | URL `libsql://...` de tu base Turso (`turso db show <nombre> --url`) |
 | `TURSO_AUTH_TOKEN` | **obligatoria** | Token de acceso a esa base (`turso db tokens create <nombre>`) |
 | `CLOUDINARY_CLOUD_NAME` | **obligatoria** | Del dashboard de Cloudinary (Settings → Access Keys) |
@@ -78,10 +79,16 @@ directamente (no requiere ningún paso de CLI).
 
 **Notas importantes:**
 
-- `PRECIO_SOLO_ENTRADA` y `PRECIO_ENTRADA_BUS` pueden quedar **vacíos** hasta que el cliente
-  confirme los montos finales. Mientras estén vacíos (o en `0`), la interfaz muestra
-  "Por confirmar" en vez de un monto — esto es un estado totalmente soportado, no bloquea el
-  funcionamiento de la app.
+- `PRECIO_SOLO_ENTRADA`, `PRECIO_ENTRADA_BUS` y `PRECIO_SOLO_BUS` pueden quedar **vacíos** hasta
+  que el cliente confirme los montos finales. Mientras estén vacíos (o en `0`), la interfaz
+  muestra "Por confirmar" en vez de un monto — esto es un estado totalmente soportado, no
+  bloquea el funcionamiento de la app.
+- Las tres variables `PRECIO_*` son solo el valor **inicial**. Desde que el panel del
+  organizador puede editar los precios (`POST /admin/precios`), un precio guardado en la base
+  de datos le gana a la variable de entorno; la variable se usa solo mientras no exista un
+  valor guardado. La única regla de resolución vive en `src/services/preciosService.js`.
+  Consecuencia práctica: después de guardar precios desde `/admin`, cambiar la variable de
+  entorno y redesplegar **no** cambia nada — hay que editarlos desde el panel.
 - `N8N_WEBHOOK_URL` vacío también es un estado soportado: el registro sigue funcionando con
   normalidad, simplemente no se reenvía nada a n8n (se loguea que fue omitido).
 - El número de Yape (`+51 908 589 569`) **no** es una variable de entorno: es un dato fijo del
@@ -182,15 +189,28 @@ lleno) y no se insertó nada.
 
 ## Vista del organizador (`/admin`)
 
-Ruta opcional de **solo lectura** en `GET /admin?key=<ADMIN_KEY>`. Si `ADMIN_KEY` no está
-configurado en `.env`, o la `key` no coincide, la ruta responde `404` (no revela que existe).
-Muestra una tabla con nombre completo, tipo de entrada, fecha y si el webhook fue enviado, más
-el resumen de cupos. No tiene botones de editar/borrar/exportar: es intencionalmente mínima, no
-es un panel admin elaborado ni un sistema de cuentas.
+Ruta opcional en `GET /admin?key=<ADMIN_KEY>`. Si `ADMIN_KEY` no está configurado en `.env`, o
+la `key` no coincide, la ruta responde `404` (no revela que existe). Muestra una tabla con
+nombre completo, organización, tipo de entrada, fecha y comprobante, más el resumen de cupos.
+
+Los **registros son de solo lectura** (no hay editar/borrar/exportar): es intencionalmente
+mínima, no es un panel admin elaborado ni un sistema de cuentas. La única acción de escritura es
+el formulario de **precios**:
+
+`POST /admin/precios?key=<ADMIN_KEY>` guarda los tres precios en la tabla `configuracion` de la
+base. Reusa exactamente la misma comparación en tiempo constante y el mismo contrato de `404`
+que el `GET`, y está detrás del mismo rate limit (20 requests por IP cada 15 minutos, aplicado a
+todo el router). Existe porque en Vercel las variables de entorno son inmutables sin un
+redeploy.
+
+Garantía importante: cambiar un precio **nunca** reescribe el `precio_pagado` de un registro ya
+existente — esa columna congela lo que esa persona pagó realmente. Un precio nuevo aplica solo a
+los registros creados después.
 
 **Limitación conocida y aceptada:** la `key` viaja como query param (`?key=...`), no como
-header. Para el uso previsto (un solo organizador revisando la vista de vez en cuando) esto es
-proporcional, pero implica dos riesgos de baja probabilidad a tener en cuenta:
+header, tanto en el `GET` como en el `POST` (el formulario la lleva en su `action`). Para el uso
+previsto (un solo organizador) esto es proporcional, pero implica dos riesgos de baja
+probabilidad a tener en cuenta:
 
 - Puede quedar registrada en el historial del navegador del organizador y en logs de acceso si
   el servidor se despliega detrás de un proxy/hosting que loguea URLs completas.
@@ -256,11 +276,16 @@ cambiar a `rewrites`/`functions` sin volver a probar un deploy real primero.
 
 Pasos para desplegar:
 
-1. En el proyecto de Vercel, agregar las variables de entorno (`TURSO_DATABASE_URL`,
+1. Correr las migraciones pendientes contra la base de Turso (ver
+   `src/db/migrations/README.md`). **Antes** del deploy: son compatibles hacia atrás, así que
+   el código que ya está vivo sigue funcionando contra el esquema nuevo.
+2. En el proyecto de Vercel, agregar las variables de entorno (`TURSO_DATABASE_URL`,
    `TURSO_AUTH_TOKEN`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
-   `MAX_AFORO`, `PRECIO_SOLO_ENTRADA`, `PRECIO_ENTRADA_BUS`, `N8N_WEBHOOK_URL` si aplica,
-   `ADMIN_KEY`) en Project Settings → Environment Variables.
-2. Redesplegar (o hacer push a `main`, que ya dispara el deploy automático). Confirmar `GET /`
+   `MAX_AFORO`, `PRECIO_SOLO_ENTRADA`, `PRECIO_ENTRADA_BUS`, `PRECIO_SOLO_BUS`,
+   `N8N_WEBHOOK_URL` si aplica, `ADMIN_KEY`) en Project Settings → Environment Variables.
+   Las `PRECIO_*` pueden quedar vacías (o no definirse): rinden "Por confirmar" hasta que se
+   carguen desde el panel de `/admin`.
+3. Redesplegar (o hacer push a `main`, que ya dispara el deploy automático). Confirmar `GET /`
    responde 200 y que un registro de prueba aparece en Turso y en Cloudinary.
 
 **Advertencia sobre el límite de tamaño de Vercel:** las Serverless Functions de Vercel (plan
@@ -286,10 +311,13 @@ integracion-tickets/
 │   ├── server.js              # entry point + crearApp() para tests de integracion
 │   ├── config.js              # lee .env, expone config con defaults
 │   ├── db/                    # schema.sql + conexion libSQL/Turso + aforo atomico
+│   │   └── migrations/        # migraciones SQL manuales (ver su README)
 │   ├── middleware/             # upload (multer, memoryStorage) + validarRegistro
-│   ├── routes/                 # api.js (registro/estado), admin.js
-│   ├── services/                # cloudinaryService, webhookService, estadoService
+│   ├── routes/                 # api.js (registro/estado), admin.js (panel + precios)
+│   ├── services/                # cloudinaryService, webhookService, estadoService, preciosService
 │   ├── views/                   # EJS (index, admin, partials)
 │   └── public/                  # css/js servidos estaticamente
-└── tests/                       # node:test (aforo, registroHttp, cloudinaryService, validarRegistro, config)
+└── tests/                       # node:test (aforo, registroHttp, registroSoloBusHttp,
+                                 #   adminPrecios, preciosService, cloudinaryService,
+                                 #   validarRegistro, config)
 ```

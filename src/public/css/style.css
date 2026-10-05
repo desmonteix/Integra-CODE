@@ -285,13 +285,21 @@ main.contenedor > *:nth-child(6) { animation-delay: 0.3s; }
 
 /* ---------- Precios ---------- */
 
+/* 3 columnas fijas (antes eran 2, con solo_entrada/entrada_bus). Con el
+   tercer tipo de entrada (solo_bus) un `1fr 1fr` dejaba la tercera tarjeta
+   sola en una segunda fila a media pantalla; tres columnas iguales mantienen
+   la fila pareja. `minmax(0, 1fr)` en vez de `1fr` evita que un texto largo
+   e incortable desborde la grilla (1fr tiene min-width:auto por defecto).
+   El contenedor es de 480px como maximo, asi que a ~100px por columna el
+   nombre y el precio se parten en dos lineas en celulares angostos — se
+   parten los tres igual, asi que la fila sigue viendose simetrica. */
 .precios-lista {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
 }
 
 .precios-item {
@@ -300,10 +308,11 @@ main.contenedor > *:nth-child(6) { animation-delay: 0.3s; }
   align-items: center;
   gap: 0.5rem;
   text-align: center;
-  padding: 1rem 0.6rem;
+  padding: 0.9rem 0.45rem;
   border-radius: var(--radius-sm);
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
+  overflow-wrap: break-word;
 }
 
 .precios-item__icono {
@@ -318,7 +327,7 @@ main.contenedor > *:nth-child(6) { animation-delay: 0.3s; }
 }
 
 .precios-item__nombre {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -326,7 +335,7 @@ main.contenedor > *:nth-child(6) { animation-delay: 0.3s; }
 .precios-item__precio {
   color: var(--color-primary);
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 /* ---------- Instrucciones de pago ---------- */
@@ -894,6 +903,63 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
 .resumen-aforo__linea {
   margin: 0 0 1rem;
   font-size: 1rem;
+}
+
+/* ---------- Formulario de precios (admin) ---------- */
+
+/* Reusa el estilo base de `form` (superficie, borde, sombra) y el de `.campo`
+   / `input[type="text"]` / `button[type="submit"]` del formulario publico, en
+   vez de inventar un lenguaje visual nuevo para el panel. */
+.form-precios__nota {
+  margin: 0 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+
+.campo--precio:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+/* Prefijo "S/" pegado al input, para que el campo contenga solo el numero
+   (lo que se guarda tal cual) y la moneda quede como contexto visual. */
+.campo--precio__fila {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.campo--precio__moneda {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 2.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-muted-foreground);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.campo--precio__ayuda {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+}
+
+.campo--precio__ayuda strong {
+  color: var(--color-primary);
+}
+
+.lista-errores {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.lista-errores li + li {
+  margin-top: 0.25rem;
 }
 
 .conteo-organizaciones {

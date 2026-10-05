@@ -2,7 +2,7 @@
   <%- include('partials/iconos') %>
   <main class="contenedor contenedor--admin">
     <h1>Panel del organizador</h1>
-    <p class="subtitulo">Vista de solo lectura — sin acciones de edición o borrado.</p>
+    <p class="subtitulo">Los registros son de solo lectura — solo los precios se pueden editar.</p>
 
     <section>
       <h2>
@@ -20,11 +20,99 @@
             <span class="conteo-organizaciones__icono" aria-hidden="true">
               <svg class="icono"><use href="#icono-edificio"></use></svg>
             </span>
-            <span class="conteo-organizaciones__nombre"><%= item.organizacion %></span>
+            <span class="conteo-organizaciones__nombre"><%= item.etiqueta %></span>
             <span class="conteo-organizaciones__cantidad"><%= item.cantidad %></span>
           </li>
         <% }); %>
       </ul>
+    </section>
+
+    <section>
+      <h2>
+        <svg class="icono" aria-hidden="true"><use href="#icono-billetera"></use></svg>
+        Precios
+      </h2>
+
+      <%# role="status" (no "alert"): es una confirmacion, no una condicion de
+          error, y asi los lectores de pantalla la anuncian sin interrumpir. %>
+      <% if (guardado) { %>
+        <div class="alerta alerta-exito" role="status">
+          <strong>Precios guardados.</strong> Ya son los que ve el público en la página de registro.
+        </div>
+      <% } %>
+
+      <%# Resumen de errores: role="alert" para que se anuncie al volver del
+          POST invalido, y tabindex="-1" por si mas adelante se le quiere dar
+          foco. Cada input ademas apunta a su propio mensaje via
+          aria-describedby. %>
+      <% if (detallesPrecios.length > 0) { %>
+        <div class="alerta alerta-error" role="alert" tabindex="-1">
+          <div>
+            <strong>No se guardó ningún precio.</strong> Corrige lo siguiente:
+            <ul class="lista-errores">
+              <% detallesPrecios.forEach(function (detalle) { %>
+                <li><%= detalle %></li>
+              <% }); %>
+            </ul>
+          </div>
+        </div>
+      <% } %>
+
+      <form class="form-precios" method="post" action="<%= accionPrecios %>" aria-describedby="nota-precios">
+        <p class="form-precios__nota" id="nota-precios">
+          Dejá un campo vacío para mostrarlo como «Por confirmar». Cambiar un precio
+          <strong>no modifica</strong> lo que ya pagaron los registros existentes.
+        </p>
+
+        <%
+          // Un solo bloque para los 3 campos: mismo markup, mismas reglas de
+          // accesibilidad, un unico lugar donde corregirlas. El `nombre` es la
+          // etiqueta visible; `tipo` es la clave interna (y el name del campo
+          // es precio_<tipo>, lo que espera validarPrecios).
+          var camposPrecio = [
+            { tipo: 'solo_entrada', nombre: 'Solo entrada' },
+            { tipo: 'entrada_bus', nombre: 'Entrada + Bus' },
+            { tipo: 'solo_bus', nombre: 'Solo bus' }
+          ];
+        %>
+        <% camposPrecio.forEach(function (campo) { %>
+          <%
+            var idInput = 'precio_' + campo.tipo;
+            var idAyuda = 'ayuda-' + campo.tipo;
+            var idError = 'error-' + campo.tipo;
+            var tieneError = Object.prototype.hasOwnProperty.call(erroresPrecios, campo.tipo);
+            // aria-describedby encadena la ayuda (lo que ve el publico hoy) y,
+            // si corresponde, el mensaje de error de ESTE campo.
+            var describedBy = tieneError ? idAyuda + ' ' + idError : idAyuda;
+          %>
+          <div class="campo campo--precio">
+            <label for="<%= idInput %>"><%= campo.nombre %></label>
+            <div class="campo--precio__fila">
+              <span class="campo--precio__moneda" aria-hidden="true">S/</span>
+              <input
+                type="text"
+                id="<%= idInput %>"
+                name="<%= idInput %>"
+                value="<%= valoresPrecios[campo.tipo] %>"
+                inputmode="decimal"
+                autocomplete="off"
+                maxlength="12"
+                placeholder="Por confirmar"
+                aria-describedby="<%= describedBy %>"
+                <% if (tieneError) { %>aria-invalid="true"<% } %>
+              />
+            </div>
+            <p class="campo--precio__ayuda" id="<%= idAyuda %>">
+              El público ve: <strong><%= preciosPublicados[campo.tipo] %></strong>
+            </p>
+            <% if (tieneError) { %>
+              <p class="error-campo" id="<%= idError %>"><%= erroresPrecios[campo.tipo] %></p>
+            <% } %>
+          </div>
+        <% }); %>
+
+        <button type="submit">Guardar precios</button>
+      </form>
     </section>
 
     <section>
@@ -54,8 +142,12 @@
               <tr>
                 <td class="tabla-admin__col-id"><%= registro.id %></td>
                 <td><%= registro.nombre_completo %></td>
-                <td><%= registro.organizacion %></td>
-                <td><%= registro.tipo_entrada === 'entrada_bus' ? 'Entrada + Bus' : 'Solo entrada' %></td>
+                <td><%= etiquetaOrganizacion(registro.organizacion) %></td>
+                <%# Mapa de 3 valores (ver ETIQUETAS_TIPO_ENTRADA en
+                    src/middleware/validarRegistro.js). Antes habia un ternario
+                    binario aca, que mostraba cualquier valor desconocido como
+                    "Solo entrada" sin que se notara. %>
+                <td><%= etiquetaTipoEntrada(registro.tipo_entrada) %></td>
                 <td class="tabla-admin__col-fecha"><%= registro.creado_en %></td>
                 <td>
                   <% if (registro.comprobante_url) { %>

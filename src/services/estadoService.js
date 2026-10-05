@@ -11,7 +11,13 @@
 // src/server.js), sin necesitar credenciales reales.
 
 const config = require('../config');
+const { obtenerPreciosFormateados } = require('./preciosService');
 
+// Los precios ya NO se leen de config.precios aca: desde que el panel de
+// admin puede editarlos (POST /admin/precios), la unica regla de resolucion
+// (override en la DB vs fallback al .env) vive en preciosService.js. Por eso
+// esta funcion depende de la DB tambien para los precios, no solo para el
+// conteo de aforo.
 async function obtenerEstado(dbConexion) {
   const totalRegistrados = await dbConexion.contarRegistros();
   const disponibles = Math.max(0, config.maxAforo - totalRegistrados);
@@ -21,10 +27,7 @@ async function obtenerEstado(dbConexion) {
     aforo_maximo: config.maxAforo,
     disponibles,
     agotado: totalRegistrados >= config.maxAforo,
-    precios: {
-      solo_entrada: config.formatearPrecio(config.precios.solo_entrada),
-      entrada_bus: config.formatearPrecio(config.precios.entrada_bus),
-    },
+    precios: await obtenerPreciosFormateados(dbConexion),
   };
 }
 

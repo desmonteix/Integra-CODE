@@ -3,8 +3,51 @@
 // la subida del archivo (ver upload.js) y de la insercion en DB (ver
 // src/db/db.js). Funcion pura: recibe req.body, retorna un resultado.
 
-const TIPOS_ENTRADA_VALIDOS = ['solo_entrada', 'entrada_bus'];
+// `solo_bus` = solo el bus, sin entrada a la fiesta. Es un tercer tipo con
+// precio propio e independiente (PRECIO_SOLO_BUS, ver src/config.js), no una
+// variante de los otros dos.
+//
+// IMPORTANTE: agregar un valor aca NO basta. El CHECK de `tipo_entrada` en
+// src/db/schema.sql solo aplica a tablas creadas desde cero (CREATE TABLE IF
+// NOT EXISTS no es retroactivo): la base de produccion necesita correr
+// src/db/migrations/001-agregar-solo-bus-y-configuracion.sql a mano, o
+// rechazara estos inserts en runtime.
+const TIPOS_ENTRADA_VALIDOS = ['solo_entrada', 'entrada_bus', 'solo_bus'];
+
+// Etiquetas VISIBLES de los tipos de entrada. Mapa completo (las tres claves)
+// a proposito: la vista de admin usaba antes un ternario binario
+// (`=== 'entrada_bus' ? 'Entrada + Bus' : 'Solo entrada'`) que renderizaba
+// cualquier valor desconocido como "Solo entrada" de forma silenciosa. Con un
+// mapa, un valor no contemplado cae al valor crudo y se nota.
+const ETIQUETAS_TIPO_ENTRADA = {
+  solo_entrada: 'Solo entrada',
+  entrada_bus: 'Entrada + Bus',
+  solo_bus: 'Solo bus',
+};
+
+function etiquetaTipoEntrada(tipoEntrada) {
+  return ETIQUETAS_TIPO_ENTRADA[tipoEntrada] || tipoEntrada;
+}
+
 const ORGANIZACIONES_VALIDAS = ['CODE', 'Tu Pata', 'Prog REA', 'Kulture Wasi', 'Externo'];
+
+// Etiquetas VISIBLES de las organizaciones. Separadas a proposito del valor
+// que se guarda en la DB: la decision del negocio fue cambiar SOLO el texto
+// que ve una persona ("Tu Pata" -> "TuPata"), sin migrar las filas ya
+// existentes ni tocar el CHECK de `organizacion` en src/db/schema.sql. Por
+// eso ORGANIZACIONES_VALIDAS (valores almacenados) queda intacto y este mapa
+// vive al lado, como unico lugar de edicion si manana cambia otra etiqueta.
+//
+// Solo se listan las organizaciones cuya etiqueta difiere del valor
+// almacenado; para el resto, etiquetaOrganizacion() cae al valor crudo.
+const ETIQUETAS_ORGANIZACION = {
+  'Tu Pata': 'TuPata',
+};
+
+function etiquetaOrganizacion(organizacion) {
+  return ETIQUETAS_ORGANIZACION[organizacion] || organizacion;
+}
+
 const REGEX_SOLO_DIGITOS = /^\d+$/;
 const REGEX_EMAIL_BASICO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -61,7 +104,9 @@ function validarRegistro(body) {
   }
 
   if (!tipoEntrada || !TIPOS_ENTRADA_VALIDOS.includes(tipoEntrada)) {
-    detalles.push('tipo_entrada debe ser "solo_entrada" o "entrada_bus"');
+    detalles.push(
+      `tipo_entrada debe ser uno de: ${TIPOS_ENTRADA_VALIDOS.map((t) => `"${t}"`).join(', ')}`
+    );
   }
 
   if (!correo) {
@@ -90,4 +135,9 @@ function validarRegistro(body) {
 }
 
 module.exports = validarRegistro;
+module.exports.TIPOS_ENTRADA_VALIDOS = TIPOS_ENTRADA_VALIDOS;
+module.exports.ETIQUETAS_TIPO_ENTRADA = ETIQUETAS_TIPO_ENTRADA;
+module.exports.etiquetaTipoEntrada = etiquetaTipoEntrada;
 module.exports.ORGANIZACIONES_VALIDAS = ORGANIZACIONES_VALIDAS;
+module.exports.ETIQUETAS_ORGANIZACION = ETIQUETAS_ORGANIZACION;
+module.exports.etiquetaOrganizacion = etiquetaOrganizacion;

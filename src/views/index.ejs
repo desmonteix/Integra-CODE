@@ -6,7 +6,7 @@
     <span class="hero__blob hero__blob--2" aria-hidden="true"></span>
     <span class="hero__blob hero__blob--3" aria-hidden="true"></span>
     <div class="hero__contenido">
-      <h1>Integra CODE x Tu Pata x Prog REA x Kulture Wasi</h1>
+      <h1>Integra CODE x TuPata x Prog REA x Kulture Wasi</h1>
       <span class="hero__lugar">
         <svg class="icono" aria-hidden="true"><use href="#icono-ubicacion"></use></svg>
         Malecón Lurín Mz.J2 - Lt. 30, Cieneguilla
@@ -39,6 +39,13 @@
             </span>
             <span class="precios-item__nombre">Entrada + Bus</span>
             <span class="precios-item__precio"><%= precios.entrada_bus %></span>
+          </li>
+          <li class="precios-item">
+            <span class="precios-item__icono" aria-hidden="true">
+              <svg class="icono"><use href="#icono-bus"></use></svg>
+            </span>
+            <span class="precios-item__nombre">Solo bus</span>
+            <span class="precios-item__precio"><%= precios.solo_bus %></span>
           </li>
         </ul>
       </section>
@@ -107,7 +114,10 @@
           <select id="organizacion" name="organizacion" required>
             <option value="" disabled selected>Selecciona tu organización</option>
             <option value="CODE">CODE</option>
-            <option value="Tu Pata">Tu Pata</option>
+            <%# El value que viaja al servidor y se guarda en la DB sigue siendo
+                "Tu Pata" (ver ORGANIZACIONES_VALIDAS y el CHECK del schema);
+                solo cambia el texto visible. %>
+            <option value="Tu Pata">TuPata</option>
             <option value="Prog REA">Prog REA</option>
             <option value="Kulture Wasi">Kulture Wasi</option>
             <option value="Externo">Externo</option>
@@ -140,6 +150,16 @@
                 <span class="tarjeta-entrada__nombre">Entrada + Bus</span>
               </span>
               <span class="tarjeta-entrada__precio"><%= precios.entrada_bus %></span>
+            </label>
+            <label class="tarjeta-entrada">
+              <input type="radio" name="tipo_entrada" value="solo_bus" />
+              <span class="tarjeta-entrada__icono" aria-hidden="true">
+                <svg class="icono"><use href="#icono-bus"></use></svg>
+              </span>
+              <span class="tarjeta-entrada__texto">
+                <span class="tarjeta-entrada__nombre">Solo bus</span>
+              </span>
+              <span class="tarjeta-entrada__precio"><%= precios.solo_bus %></span>
             </label>
           </div>
           <p class="error-campo" data-error-para="tipo_entrada"></p>

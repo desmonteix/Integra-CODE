@@ -38,9 +38,15 @@ const maxAforoParseado = parseIntConDefault(process.env.MAX_AFORO, MAX_AFORO_DEF
 const config = {
   port: parseIntConDefault(process.env.PORT, 3000),
   maxAforo: maxAforoParseado > 0 ? maxAforoParseado : MAX_AFORO_DEFAULT,
+  // Precios POR DEFECTO / de arranque. A partir del panel de admin, estos
+  // valores son solo el fallback: si existe un override guardado en la tabla
+  // `configuracion` de la DB, ese gana. La unica regla de resolucion vive en
+  // src/services/preciosService.js — ningun modulo debe leer config.precios
+  // directamente para mostrar o cobrar un precio.
   precios: {
     solo_entrada: process.env.PRECIO_SOLO_ENTRADA || '',
     entrada_bus: process.env.PRECIO_ENTRADA_BUS || '',
+    solo_bus: process.env.PRECIO_SOLO_BUS || '',
   },
   n8nWebhookUrl: process.env.N8N_WEBHOOK_URL || '',
   webhookTimeoutMs: parseIntConDefault(process.env.WEBHOOK_TIMEOUT_MS, 3000),

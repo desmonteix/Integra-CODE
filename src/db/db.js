@@ -148,12 +148,62 @@ function crearConexion(url, authToken) {
     });
   }
 
+  // Lee TODA la tabla `configuracion` como un objeto plano { clave: valor }.
+  // Son un puñado de filas (3 precios hoy), asi que traerlas todas en una
+  // sola query es mas simple y mas barato en round-trips que pedirlas de a
+  // una.
+  //
+  // IMPORTANTE: una clave presente con valor '' (string vacio) NO es lo mismo
+  // que una clave ausente. La diferencia es significativa y la respeta
+  // src/services/preciosService.js: ausente => cae al valor del .env;
+  // presente y vacia => es un override intencional que significa
+  // "Por confirmar". Por eso esta funcion devuelve la clave con '' en vez de
+  // omitirla.
+  async function obtenerConfiguracion() {
+    await listo;
+    const resultado = await client.execute('SELECT clave, valor FROM configuracion');
+    const configuracion = {};
+    for (const fila of resultado.rows) {
+      configuracion[fila.clave] = fila.valor;
+    }
+    return configuracion;
+  }
+
+  // UPSERT idempotente de los precios recibidos (objeto { clave: valor }).
+  // Correrlo dos veces con el mismo input deja la tabla igual.
+  //
+  // Se ejecuta como sentencias sueltas en autocommit (una por clave), NO como
+  // `client.transaction()` ni `client.batch()`, por la misma razon documentada
+  // al inicio de este archivo para `insertarRegistroSiHayCupo`: una
+  // transaccion interactiva que muera a mitad en serverless deja el primary
+  // de Turso bloqueado para escritura hasta 5s. Aca la atomicidad entre las
+  // tres claves no es una restriccion de negocio (son tres precios
+  // independientes, y el panel siempre los envia juntos desde un unico
+  // formulario), asi que no se justifica pagar ese riesgo.
+  async function guardarPrecios(precios) {
+    await listo;
+    for (const [clave, valor] of Object.entries(precios)) {
+      await client.execute({
+        sql: `
+          INSERT INTO configuracion (clave, valor, actualizado_en)
+          VALUES (:clave, :valor, datetime('now','localtime'))
+          ON CONFLICT(clave) DO UPDATE
+            SET valor = excluded.valor,
+                actualizado_en = excluded.actualizado_en
+        `,
+        args: { clave, valor: String(valor) },
+      });
+    }
+  }
+
   return {
     db: client,
     contarRegistros,
     insertarRegistroSiHayCupo,
     obtenerTodosLosRegistros,
     marcarWebhookEnviado,
+    obtenerConfiguracion,
+    guardarPrecios,
   };
 }
 

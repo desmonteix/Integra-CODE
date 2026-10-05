@@ -17,6 +17,7 @@ const crearRouterApi = require('./routes/api');
 const crearRouterAdmin = require('./routes/admin');
 const cloudinaryService = require('./services/cloudinaryService');
 const { obtenerEstado } = require('./services/estadoService');
+const { envolverAsync } = require('./middleware/asyncHandler');
 const { crearConexionPorDefecto } = require('./db/db');
 
 // Construye la app Express a partir de una conexion de DB ya creada
@@ -63,19 +64,30 @@ function crearApp(dbConexion) {
   // GET / — SSR: calcula el estado con las mismas funciones que usa
   // GET /api/estado (ver src/services/estadoService.js) y se lo pasa a la
   // vista. Si el aforo ya esta completo, la vista no renderiza el formulario.
-  app.get('/', async (req, res) => {
-    const estado = await obtenerEstado(dbConexion);
-    res.render('index', {
-      titulo: 'Integra CODE — Entradas',
-      agotado: estado.agotado,
-      totalRegistrados: estado.total_registrados,
-      aforoMaximo: estado.aforo_maximo,
-      disponibles: estado.disponibles,
-      precios: estado.precios,
-      yapeNumero: config.yapeNumero,
-      yapeTitular: config.yapeTitular,
-    });
-  });
+  //
+  // envolverAsync: Express 4 no reenvia rechazos de promesas al manejador de
+  // errores de mas abajo. Sin esto, un fallo de Turso al calcular el estado
+  // (timeout de red, TURSO_AUTH_TOKEN vencido) dejaba a quien visitara la
+  // home SIN respuesta (colgado hasta su propio timeout) y podia terminar el
+  // proceso por unhandledRejection — en serverless, matando la instancia que
+  // atendia al resto. Con el envoltorio, el error llega al manejador global y
+  // responde un 500 generico. Ver src/middleware/asyncHandler.js.
+  app.get(
+    '/',
+    envolverAsync(async (req, res) => {
+      const estado = await obtenerEstado(dbConexion);
+      res.render('index', {
+        titulo: 'Integra CODE — Entradas',
+        agotado: estado.agotado,
+        totalRegistrados: estado.total_registrados,
+        aforoMaximo: estado.aforo_maximo,
+        disponibles: estado.disponibles,
+        precios: estado.precios,
+        yapeNumero: config.yapeNumero,
+        yapeTitular: config.yapeTitular,
+      });
+    })
+  );
 
   // Manejador de errores global — ultima red de seguridad.
   // Sin esto, Express usa su handler por defecto para cualquier error no
