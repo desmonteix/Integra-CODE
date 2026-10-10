@@ -2637,6 +2637,14 @@ git commit -m "Agregar cookie de staff para la validacion en puerta"
 
 ## Task 9: Router `/t` y vista de la puerta
 
+> **Corrección al plan durante la implementación:** el ejemplo original de
+> `POST /t/:token/deshacer` redirige con 303 a `GET /t/:token`. Ese GET, con la
+> cookie de staff, vuelve a marcar el ingreso inmediatamente. La acción
+> "Deshacer" se anula al seguir el redirect. La implementación debe redirigir
+> a una vista de lectura tras deshacer, sin ejecutar `marcarIngresoSiNoIngreso`.
+> El test HTTP debe seguir el redirect y comprobar que `ingreso_en` sigue NULL.
+> Conservar el 303 para evitar reenviar el POST al refrescar.
+
 **Files:**
 - Create: `src/routes/ticket.js`
 - Create: `src/views/ticket.ejs`

@@ -15,6 +15,7 @@ const helmet = require('helmet');
 const config = require('./config');
 const crearRouterApi = require('./routes/api');
 const crearRouterAdmin = require('./routes/admin');
+const crearRouterTicket = require('./routes/ticket');
 const cloudinaryService = require('./services/cloudinaryService');
 const { obtenerEstado } = require('./services/estadoService');
 const { envolverAsync } = require('./middleware/asyncHandler');
@@ -43,7 +44,7 @@ function crearApp(dbConexion) {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
           styleSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:'],
+          imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
           connectSrc: ["'self'"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
@@ -60,6 +61,7 @@ function crearApp(dbConexion) {
 
   app.use('/api', crearRouterApi(dbConexion));
   app.use('/admin', crearRouterAdmin(dbConexion));
+  app.use('/t', crearRouterTicket(dbConexion));
 
   // GET / — SSR: calcula el estado con las mismas funciones que usa
   // GET /api/estado (ver src/services/estadoService.js) y se lo pasa a la
