@@ -188,6 +188,20 @@ function crearRouterAdmin(dbConexion) {
       erroresPrecios: opciones.erroresPrecios || {},
       detallesPrecios: opciones.detallesPrecios || [],
       guardado: Boolean(opciones.guardado),
+      conteoEstados: {
+        pendiente: registros.filter(r => r.estado_aprobacion === ESTADOS_APROBACION.PENDIENTE).length,
+        aprobado: registros.filter(r => r.estado_aprobacion === ESTADOS_APROBACION.APROBADO).length,
+        rechazado: registros.filter(r => r.estado_aprobacion === ESTADOS_APROBACION.RECHAZADO).length,
+        ingresados: registros.filter(r => r.ingreso_en).length,
+      },
+      claveEncodeada: encodeURIComponent(req.query.key),
+      aviso: typeof req.query.aviso === 'string' ? req.query.aviso : '',
+      avisoLote: {
+        ok: typeof req.query.lote_ok === 'string' && /^\d+$/.test(req.query.lote_ok) ? req.query.lote_ok : '0',
+        error: typeof req.query.lote_error === 'string' && /^\d+$/.test(req.query.lote_error) ? req.query.lote_error : '0',
+        restantes: typeof req.query.lote_restantes === 'string' && /^\d+\+?$/.test(req.query.lote_restantes) ? req.query.lote_restantes : '0',
+      },
+      urlAccesoStaff: `/t/acceso?key=${encodeURIComponent(req.query.key)}`,
     });
   }
 
