@@ -20,8 +20,54 @@ CREATE TABLE IF NOT EXISTS registros (
   comprobante_url         TEXT NOT NULL,
   comprobante_public_id   TEXT NOT NULL,
   creado_en         TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  webhook_enviado   INTEGER NOT NULL DEFAULT 0
+  webhook_enviado   INTEGER NOT NULL DEFAULT 0,
+
+  -- --- Flujo de QR de entrada (ver docs/superpowers/specs/2026-10-09-qr-entradas-design.md) ---
+  -- 'pendiente' | 'aprobado' | 'rechazado'. Un registro nace pendiente: el
+  -- organizador tiene que mirar el comprobante de Yape antes de que se emita
+  -- una entrada valida.
+  --
+  -- NO lleva CHECK a proposito: agregarselo a una tabla que ya existe en
+  -- produccion exigiria reconstruirla (como hizo la migracion 001 para
+  -- tipo_entrada), que es destructivo. La restriccion de los tres valores
+  -- validos se impone en src/db/db.js, en un unico punto, y la cubren los
+  -- tests.
+  estado_aprobacion TEXT NOT NULL DEFAULT 'pendiente',
+
+  -- Secreto de la entrada: 22 caracteres base64url (128 bits aleatorios).
+  -- NULL hasta que el organizador aprueba. Opaco a proposito: no deriva del
+  -- id ni del DNI, asi que tener un token no permite inferir otro.
+  ticket_token      TEXT,
+
+  -- PNG del QR en Cloudinary (carpeta qr/). public_id se guarda aparte solo
+  -- para poder borrar el asset si la aprobacion falla despues de subirlo.
+  qr_url            TEXT,
+  qr_public_id      TEXT,
+
+  -- Timestamp del escaneo que marco el ingreso. NULL = no ingreso todavia.
+  -- Es la columna que hace que la entrada sea de UN SOLO USO: se setea con un
+  -- UPDATE condicional (WHERE ingreso_en IS NULL), nunca leyendo-y-escribiendo.
+  ingreso_en        TEXT,
+
+  -- OJO con el nombre: significa "n8n acuso recibo del webhook", NO "el
+  -- correo llego a la persona". El backend no puede saber lo segundo porque
+  -- quien manda el correo es el workflow de n8n. La interfaz de /admin debe
+  -- decir "entregado a n8n", nunca "enviado".
+  correo_qr_enviado INTEGER NOT NULL DEFAULT 0
 );
+
+-- La unicidad de ticket_token NO puede declararse en la columna cuando se
+-- agrega con ALTER TABLE (SQLite/libSQL no lo permiten), asi que vive en un
+-- indice aparte, identico al de la migracion 002. Sin el, dos filas podrian
+-- compartir token y el escaneo de una persona marcaria el ingreso de otra.
+--
+-- Un indice UNIQUE en SQLite admite multiples NULL, asi que convive sin
+-- problema con todos los registros pendientes (todos con ticket_token NULL).
+--
+-- Tambien es el indice que hace que la busqueda por token en la puerta no
+-- recorra la tabla entera.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_registros_ticket_token
+  ON registros (ticket_token);
 
 -- Configuracion editable en runtime, como clave/valor de texto.
 --

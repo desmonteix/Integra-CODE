@@ -67,6 +67,7 @@ rota en ningun momento intermedio.
 | Archivo | Que hace | Requerida por |
 |---|---|---|
 | `001-agregar-solo-bus-y-configuracion.sql` | Agrega `'solo_bus'` al `CHECK` de `registros.tipo_entrada` (reconstruyendo la tabla, preservando `id`, `creado_en`, `precio_pagado` y `webhook_enviado`) y crea la tabla `configuracion`. | El tercer tipo de entrada ("Solo bus") y los precios editables desde `/admin`. |
+| `002-qr-entradas.sql` | Agrega `estado_aprobacion`, `ticket_token`, `qr_url`, `qr_public_id`, `ingreso_en` y `correo_qr_enviado` a `registros`, mas el indice unico `idx_registros_ticket_token`. Solo `ALTER TABLE ADD COLUMN` + `CREATE INDEX`: no reconstruye la tabla. | El QR de entrada por persona, el envio del correo y la validacion en puerta. |
 
 ### Si no corres la 001
 
@@ -81,3 +82,14 @@ rota en ningun momento intermedio.
   puede hacer es modificar el `CHECK` de una tabla que ya existe. La
   migracion incluye `configuracion` de todos modos para que una sola corrida
   deje la base entera al dia y verificable.
+
+### Si no corres la 002
+
+- `/admin` falla con un 500 al listar registros: la vista lee
+  `registro.estado_aprobacion` y la columna no existe.
+- Aprobar un registro falla: el `UPDATE` referencia columnas inexistentes.
+- **No se puede suplir con `schema.sql`**: ese script usa
+  `CREATE TABLE IF NOT EXISTS`, que no toca una tabla que ya existe. El
+  `CREATE UNIQUE INDEX IF NOT EXISTS` del final de `schema.sql` **sí** se
+  crearia solo en el proximo arranque, pero fallaria mientras la columna
+  `ticket_token` no exista. Corré la migracion.
