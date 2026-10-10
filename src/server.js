@@ -33,17 +33,16 @@ function crearApp(dbConexion) {
   // Confirmado en auditoria: sin esto, las respuestas no traian
   // X-Content-Type-Options, X-Frame-Options ni Content-Security-Policy, y
   // exponian "X-Powered-By: Express" (fingerprinting trivial del stack).
-  // CSP restringida a 'self' porque toda la app es HTML server-rendered +
-  // /css y /js propios (ver src/public/), sin scripts ni estilos de terceros
-  // ni inline (registro.js es un archivo externo, no hay <script> inline en
-  // las vistas EJS).
+  // CSP para HTML server-rendered, scripts propios y los origenes concretos
+  // que usan las vistas: Google Fonts en el head y QR en Cloudinary.
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          styleSrc: ["'self'"],
+          styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
           connectSrc: ["'self'"],
           objectSrc: ["'none'"],

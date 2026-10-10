@@ -130,3 +130,12 @@ test('la CSP permite mostrar imagenes QR de Cloudinary', async () => {
     assert.match(res.headers.get('content-security-policy'), /res\.cloudinary\.com/);
   });
 });
+
+test('la CSP permite las fuentes externas que carga el layout', async () => {
+  await conPuerta(async ({ base }) => {
+    const res = await abrir(base, `/t/${TOKEN}`);
+    const csp = res.headers.get('content-security-policy');
+    assert.match(csp, /style-src[^;]*fonts\.googleapis\.com/);
+    assert.match(csp, /font-src[^;]*fonts\.gstatic\.com/);
+  });
+});
