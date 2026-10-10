@@ -52,6 +52,17 @@ const config = {
   webhookTimeoutMs: parseIntConDefault(process.env.WEBHOOK_TIMEOUT_MS, 3000),
   webhookMaxRetries: parseIntConDefault(process.env.WEBHOOK_MAX_RETRIES, 1),
   adminKey: process.env.ADMIN_KEY || '',
+  // URL publica y absoluta de la app, sin barra final (p.ej.
+  // https://integra-code-umber.vercel.app). Es OBLIGATORIA para aprobar
+  // registros: el QR tiene que contener una URL absoluta.
+  //
+  // Deliberadamente NO se deduce del header `Host` de la request: ese header
+  // lo controla quien hace la llamada, asi que una request con Host
+  // falsificado produciria QR apuntando al dominio de un atacante, que podria
+  // mostrarle su propia pantalla de "VALIDO" al staff de la puerta. Un QR con
+  // la URL equivocada es indistinguible de uno correcto hasta que alguien lo
+  // escanea en la puerta, cuando ya es tarde.
+  baseUrl: process.env.BASE_URL || '',
   tursoUrl: process.env.TURSO_DATABASE_URL || '',
   tursoAuthToken: process.env.TURSO_AUTH_TOKEN || '',
   cloudinary: {
