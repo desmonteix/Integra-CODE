@@ -41,7 +41,7 @@ class BaseUrlError extends Error {}
 class BaseUrlFaltanteError extends BaseUrlError {
   constructor() {
     super(
-      'BASE_URL no esta configurada. Sin ella no se puede generar un QR con una URL valida.'
+      'BASE_URL no está configurada. Sin ella no se puede generar un QR con una URL válida.'
     );
     this.name = 'BaseUrlFaltanteError';
   }
@@ -50,9 +50,9 @@ class BaseUrlFaltanteError extends BaseUrlError {
 class BaseUrlInvalidaError extends BaseUrlError {
   constructor(valorRecibido) {
     super(
-      `BASE_URL tiene un valor que no es una URL absoluta: ${JSON.stringify(valorRecibido)}. ` +
-        'Tiene que empezar con http:// o https:// y no llevar espacios, por ejemplo ' +
-        'https://integra-code-umber.vercel.app'
+      `BASE_URL tiene un valor que no es una URL válida: ${JSON.stringify(valorRecibido)}. ` +
+        'Tiene que ser esquema (http:// o https://) + host, sin path, query ni fragmento, ' +
+        'y sin espacios, por ejemplo https://integra-code-umber.vercel.app'
     );
     this.name = 'BaseUrlInvalidaError';
     // El valor crudo queda disponible aparte del mensaje, para poder loguearlo
@@ -65,28 +65,63 @@ function generarToken() {
   return crypto.randomBytes(BYTES_TOKEN).toString('base64url');
 }
 
-// URL absoluta: esquema http o https, y al menos un caracter de host despues
-// de '//', sin ningun espacio en el medio.
+// Esquema + host (+ puerto opcional), SIN path, query ni fragment: es lo
+// unico que se puede concatenar con `/t/${token}` sin riesgo de que el
+// resultado sea una ruta distinta de la que monta vercel.json.
 //
-// Es a proposito mas estricta que `new URL(...)`: `new URL` acepta cosas como
-// 'javascript:alert(1)' o 'ftp://host' como URLs perfectamente validas, y
-// ninguna de las dos sirve para lo que necesitamos (una direccion web que la
-// camara de un telefono pueda abrir). No se usa `new URL` tampoco para evitar
-// que normalice el valor por detras (puerto por defecto, barra final, punycode
-// del host): lo que entra al QR tiene que ser reconociblemente lo que el
-// organizador escribio.
-const URL_ABSOLUTA = /^https?:\/\/[^\s]+$/i;
+// El auditor encontro el agujero de la version anterior: un regex que solo
+// pedia "http(s):// y nada de espacios" aceptaba 'https://host/app',
+// 'https://host/?utm=1' y 'https://host#x' como si fueran validas, y las
+// tres producian un QR roto (la app esta montada en la raiz, asi que
+// cualquier path/query/fragment en BASE_URL termina pegado ANTES del
+// '/t/token' en vez de reemplazado por el).
+//
+// Se usa `new URL(...)` para no tener que mantener a mano la enumeracion de
+// formas invalidas, pero hace falta ADEMAS una verificacion literal sobre el
+// texto de entrada porque el parser WHATWG de URL es mas permisivo de lo que
+// este caso de uso necesita, en dos formas que importan aca:
+//
+//   * Un esquema con una sola barra ('https:/host.app') se interpreta IGUAL
+//     que con dos, porque http/https son "esquemas especiales" para el
+//     parser: `new URL('https:/host.app').host` da 'host.app' sin lanzar. Si
+//     solo se miraran los campos de `new URL` esto pasaria como valido.
+//   * Un tab o salto de linea EN EL MEDIO del valor se descarta en vez de
+//     rechazarse (son "ASCII tab or newline" segun el spec de URL), asi que
+//     'https://ho\nst.app' termina en un host valido 'host.app' sin lanzar
+//     tampoco.
+//
+// La verificacion literal (antes de parsear) cierra las dos: exige el
+// esquema seguido de '://' tal cual, y no deja ningun espacio/tab/salto de
+// linea en el resto del valor.
+const FORMA_LITERAL_ESQUEMA_HOST = /^https?:\/\/[^\s/?#]+\/?$/i;
 
-// Devuelve la URL absoluta que se codifica dentro del QR.
+function esBaseUrlValida(base) {
+  if (!FORMA_LITERAL_ESQUEMA_HOST.test(base)) return false;
+
+  let url;
+  try {
+    url = new URL(base);
+  } catch {
+    return false;
+  }
+
+  return (
+    (url.protocol === 'http:' || url.protocol === 'https:') &&
+    url.host !== '' &&
+    url.pathname === '/' &&
+    url.search === '' &&
+    url.hash === ''
+  );
+}
+
+// Lee config.baseUrl, lo valida, y devuelve la base normalizada (sin barra
+// final) lista para concatenarle `/t/${token}`. Lanza la subclase de
+// BaseUrlError que corresponda si no se puede.
 //
-// POR QUE LA VALIDACION ES ESTRICTA Y LANZA, en vez de intentar arreglar el
-// valor o seguir adelante: aprobar es idempotente y reenviar NO regenera el
-// token a proposito (ver el spec, seccion "Reenviar"). Un QR emitido con una
-// URL rota se queda roto para siempre desde el punto de vista de la app: la
-// unica salida es editar filas en Turso a mano. Y como el sintoma no aparece
-// hasta que alguien escanea en la puerta, un BASE_URL mal escrito puede
-// producir 150 entradas invalidas antes de que nadie lo note. Mejor fallar en
-// la primera aprobacion, con un mensaje que diga que corregir.
+// Separada de la construccion de la URL (ver construirUrlDesdeBase) para que
+// quien necesite aprobar varios registros en una sola operacion (Tarea 7 del
+// plan, el lote) pueda validar UNA vez antes de arrancar el lote, en vez de
+// pagar esta validacion en cada iteracion.
 //
 // Normaliza dos cosas, y solo dos, porque las dos son recuperables sin
 // ambiguedad:
@@ -99,8 +134,9 @@ const URL_ABSOLUTA = /^https?:\/\/[^\s]+$/i;
 //     impreso queda como un error visible y confuso.
 //
 // Todo lo demas se rechaza en vez de adivinarse: agregarle 'https://' a un
-// valor sin esquema seria inventar la mitad de la direccion.
-function armarUrlTicket(token) {
+// valor sin esquema seria inventar la mitad de la direccion, y tolerar un
+// path/query/fragment seria reabrir el agujero de arriba.
+function obtenerBaseUrlValidada() {
   const crudo = config.baseUrl;
 
   // Ausente, vacia, o solo espacios/saltos de linea: no hay nada que validar,
@@ -110,16 +146,39 @@ function armarUrlTicket(token) {
   }
 
   const base = crudo.trim();
-  if (!URL_ABSOLUTA.test(base)) {
+  if (!esBaseUrlValida(base)) {
     throw new BaseUrlInvalidaError(crudo);
   }
 
-  return `${base.replace(/\/+$/, '')}/t/${token}`;
+  return base.replace(/\/+$/, '');
+}
+
+// Pura: no lee config ni valida nada, solo concatena. `baseValidada` tiene
+// que venir de obtenerBaseUrlValidada() (o de un valor igual de confiable);
+// esta funcion confia en que ya no tiene barra final ni path/query/fragment.
+function construirUrlDesdeBase(baseValidada, token) {
+  return `${baseValidada}/t/${token}`;
+}
+
+// Devuelve la URL absoluta que se codifica dentro del QR.
+//
+// POR QUE LA VALIDACION ES ESTRICTA Y LANZA, en vez de intentar arreglar el
+// valor o seguir adelante: aprobar es idempotente y reenviar NO regenera el
+// token a proposito (ver el spec, seccion "Reenviar"). Un QR emitido con una
+// URL rota se queda roto para siempre desde el punto de vista de la app: la
+// unica salida es editar filas en Turso a mano. Y como el sintoma no aparece
+// hasta que alguien escanea en la puerta, un BASE_URL mal escrito puede
+// producir 150 entradas invalidas antes de que nadie lo note. Mejor fallar en
+// la primera aprobacion, con un mensaje que diga que corregir.
+function armarUrlTicket(token) {
+  return construirUrlDesdeBase(obtenerBaseUrlValidada(), token);
 }
 
 module.exports = {
   generarToken,
   armarUrlTicket,
+  obtenerBaseUrlValidada,
+  construirUrlDesdeBase,
   BaseUrlError,
   BaseUrlFaltanteError,
   BaseUrlInvalidaError,

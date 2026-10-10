@@ -40,6 +40,8 @@ const config = require('../src/config');
 const {
   generarToken,
   armarUrlTicket,
+  obtenerBaseUrlValidada,
+  construirUrlDesdeBase,
   BaseUrlError,
   BaseUrlFaltanteError,
   BaseUrlInvalidaError,
@@ -235,6 +237,71 @@ test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL tiene un espacio ade
   });
 });
 
+// ===== El agujero que encontro la auditoria: path, query y fragment =====
+//
+// El regex anterior (`/^https?:\/\/[^\s]+$/i`) aceptaba un path, un query o
+// un fragment pegados a BASE_URL. Como la app esta montada en la raiz
+// (vercel.json: `/(.*)`), cada una de estas formas producia un QR con una URL
+// que ningun router de Express reconoce como `/t/:token`: un 404 en la puerta
+// del evento, exactamente lo que este archivo existe para prevenir.
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un path', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app/app', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un query string', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app/?utm=1', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un query string sin barra antes', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app?utm=1', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un fragment', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app#x', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un query string vacio ("?" suelto)', () => {
+  // Caso limite: `new URL('https://host?').search` da '' (vacio), asi que
+  // mirar solo los campos parseados dejaria pasar esto. El '?' literal en el
+  // texto de entrada tiene que alcanzar para rechazar.
+  conBaseUrl('https://integra-code-umber.vercel.app?', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un fragment vacio ("#" suelto)', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app#', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae esquema con una sola barra', () => {
+  // `new URL('https:/host.app')` lo parsea igual que con dos barras (http y
+  // https son "esquemas especiales" para el parser WHATWG), asi que mirar
+  // solo los campos de `new URL` no alcanza para rechazar esta forma.
+  conBaseUrl('https:/integra-code-umber.vercel.app', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
+test('armarUrlTicket lanza BaseUrlInvalidaError si BASE_URL trae un tab en el medio', () => {
+  // `new URL` descarta un tab/salto de linea interno en vez de rechazarlo
+  // (ASCII tab-or-newline del spec de URL), asi que el campo `host` parseado
+  // podria salir "limpio" aunque el texto de entrada no lo sea.
+  conBaseUrl('https://integra-code\tumber.vercel.app', () => {
+    assert.throws(() => armarUrlTicket('abc123'), BaseUrlInvalidaError);
+  });
+});
+
 test('el mensaje de BaseUrlInvalidaError muestra el valor recibido, para que sea accionable', () => {
   conBaseUrl('host.app', () => {
     assert.throws(() => armarUrlTicket('abc123'), /host\.app/);
@@ -273,6 +340,14 @@ test('ninguna BASE_URL invalida deja pasar una URL a medio armar', () => {
     'https:/host.app',
     'https://con espacio.app',
     'javascript:alert(1)',
+    // Lo que agrego la auditoria: path, query y fragment, que antes pasaban.
+    'https://host.app/app',
+    'https://host.app/?utm=1',
+    'https://host.app?utm=1',
+    'https://host.app#x',
+    'https://host.app?',
+    'https://host.app#',
+    'https://host.app\ttab',
   ];
   for (const valor of invalidos) {
     conBaseUrl(valor, () => {
@@ -283,4 +358,71 @@ test('ninguna BASE_URL invalida deja pasar una URL a medio armar', () => {
       );
     });
   }
+});
+
+// ===========================================================================
+// obtenerBaseUrlValidada / construirUrlDesdeBase — validacion separada de
+// la construccion de la URL
+// ===========================================================================
+//
+// Por que hace falta esto: `armarUrlTicket` sola valida config.baseUrl por
+// dentro, asi que aprobar un LOTE de registros (Tarea 7 del plan) pagaria la
+// validacion una vez por registro en vez de una vez por lote. Con la
+// validacion separada, quien procese un lote puede llamar a
+// obtenerBaseUrlValidada() UNA sola vez antes de arrancar, y reusar el
+// resultado para cada token con construirUrlDesdeBase (que es pura: no lee
+// config ni valida nada).
+
+test('obtenerBaseUrlValidada devuelve la base normalizada, sin barra final', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app/', () => {
+    assert.equal(obtenerBaseUrlValidada(), 'https://integra-code-umber.vercel.app');
+  });
+});
+
+test('obtenerBaseUrlValidada lanza BaseUrlFaltanteError si BASE_URL esta vacia', () => {
+  conBaseUrl('', () => {
+    assert.throws(() => obtenerBaseUrlValidada(), BaseUrlFaltanteError);
+  });
+});
+
+test('obtenerBaseUrlValidada lanza BaseUrlInvalidaError si BASE_URL trae un path', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app/app', () => {
+    assert.throws(() => obtenerBaseUrlValidada(), BaseUrlInvalidaError);
+  });
+});
+
+test('construirUrlDesdeBase es pura: no toca config.baseUrl para nada', () => {
+  // Con config.baseUrl vacia (lo que haria explotar a armarUrlTicket),
+  // construirUrlDesdeBase igual arma la URL a partir de la base que recibe
+  // como argumento: no lee config en absoluto.
+  conBaseUrl('', () => {
+    assert.equal(
+      construirUrlDesdeBase('https://integra-code-umber.vercel.app', 'abc123'),
+      'https://integra-code-umber.vercel.app/t/abc123'
+    );
+  });
+});
+
+test('armarUrlTicket sigue funcionando igual que antes, como composicion de las dos', () => {
+  conBaseUrl('https://integra-code-umber.vercel.app/', () => {
+    assert.equal(
+      armarUrlTicket('abc123'),
+      construirUrlDesdeBase(obtenerBaseUrlValidada(), 'abc123')
+    );
+  });
+});
+
+test('obtenerBaseUrlValidada se puede llamar UNA vez y reusarse para varios tokens', () => {
+  // Es el patron que necesita el lote (Tarea 7): validar una vez, construir
+  // N veces sin volver a validar.
+  conBaseUrl('https://integra-code-umber.vercel.app', () => {
+    const base = obtenerBaseUrlValidada();
+    const tokens = ['t1', 't2', 't3'];
+    const urls = tokens.map((t) => construirUrlDesdeBase(base, t));
+    assert.deepEqual(urls, [
+      'https://integra-code-umber.vercel.app/t/t1',
+      'https://integra-code-umber.vercel.app/t/t2',
+      'https://integra-code-umber.vercel.app/t/t3',
+    ]);
+  });
 });
