@@ -44,10 +44,20 @@ function inicializar() {
   });
 }
 
-// ===== Private helpers para reducir duplicacion =====
+// ===== Helper privado =====
 
-// Helper privado que sube un Buffer a una carpeta dada, sin tocar disco,
-// via upload_stream. Devuelve { secure_url, public_id }.
+// Sube un Buffer a la carpeta `carpeta` de Cloudinary, sin tocar disco, via
+// upload_stream. Devuelve { secure_url, public_id }.
+//
+// Este helper SI vale la pena: la carpeta es lo unico que varia entre subir un
+// comprobante y subir un QR, y el resto (envolver el callback del SDK en una
+// promesa, el `.end(buffer)`, extraer solo los dos campos que nos interesan)
+// es media docena de lineas que no deberian existir dos veces.
+//
+// El borrado, en cambio, NO tiene helper equivalente a proposito: ahi no varia
+// nada entre comprobante y QR (las dos funciones recibirian el mismo unico
+// argumento y lo pasarian tal cual), asi que un helper seria indireccion pura
+// sobre un cuerpo de dos lineas. Ver borrarComprobante/borrarQr mas abajo.
 function subirALaCarpeta(buffer, carpeta) {
   return new Promise((resolve, reject) => {
     const streamUpload = cloudinary.uploader.upload_stream({ folder: carpeta }, (error, result) => {
@@ -56,13 +66,6 @@ function subirALaCarpeta(buffer, carpeta) {
     });
     streamUpload.end(buffer);
   });
-}
-
-// Helper privado que borra un asset de Cloudinary si el publicId es valido.
-// No lanza si el publicId es falsy (null, undefined, vacio).
-async function borrarDeLaCarpeta(publicId) {
-  if (!publicId) return;
-  await cloudinary.uploader.destroy(publicId);
 }
 
 // ===== Funciones publicas =====
@@ -77,8 +80,17 @@ function subirComprobante(buffer) {
 // borrarArchivoSiExiste que antes borraba el archivo huerfano en disco:
 // mismo espiritu, no dejar basura huerfana en Cloudinary cuando el registro
 // termina fallando despues de subir la imagen).
+//
+// No lanza si el publicId es falsy (null, undefined, ''): los callers la
+// invocan en el camino de limpieza de un error, donde puede no haber habido
+// subida, y no queremos que la limpieza enmascare el error original.
+//
+// `destroy` recibe un public_id que ya trae la carpeta dentro
+// ('comprobantes/x'), asi que no hay nada que parametrizar: el cuerpo es el
+// mismo que el de borrarQr por coincidencia, no por una abstraccion comun.
 async function borrarComprobante(publicId) {
-  return borrarDeLaCarpeta(publicId);
+  if (!publicId) return;
+  await cloudinary.uploader.destroy(publicId);
 }
 
 // Sube el PNG del QR generado en memoria (ver src/services/qrService.js) a la
@@ -96,7 +108,7 @@ function subirQr(buffer) {
 
 // Borra un asset de QR de Cloudinary. Mismo espiritu que borrarComprobante:
 // no dejar un QR huerfano en Cloudinary cuando la aprobacion falla DESPUES de
-// haber subido la imagen.
+// haber subido la imagen. Tampoco lanza si el publicId es falsy.
 //
 // ESTADO HOY (este commit): todavia no tiene ningun caller. La ruta de
 // aprobacion (`POST /admin/aprobar`) es la Tarea 6 del plan
@@ -108,7 +120,8 @@ function subirQr(buffer) {
 // UPDATE afecta 0 filas o explota, borrarQr del asset recien subido y dejar el
 // registro pendiente y reintentable).
 async function borrarQr(publicId) {
-  return borrarDeLaCarpeta(publicId);
+  if (!publicId) return;
+  await cloudinary.uploader.destroy(publicId);
 }
 
 module.exports = {
