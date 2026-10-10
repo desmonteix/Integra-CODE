@@ -70,13 +70,9 @@ CREATE TABLE IF NOT EXISTS registros (
   -- distintas, que es justo la divergencia que hay que evitar entre este
   -- archivo y src/db/migrations/002-qr-entradas.sql.
   --
-  -- ESTADO HOY (este commit): NADA en el codigo impone los tres valores.
-  -- `estado_aprobacion` no aparece en src/db/db.js y ningun test lo cubre; lo
-  -- unico que esta vivo es el DEFAULT de esta linea. La Tarea 4 del plan
-  -- (docs/superpowers/plans/2026-10-09-qr-entradas.md) va a imponer los tres
-  -- valores en src/db/db.js, en un unico punto, con tests. Hasta entonces la
-  -- unica fuente de verdad del conjunto de valores validos es
-  -- docs/superpowers/specs/2026-10-09-qr-entradas-design.md.
+  -- Las escrituras de aprobacion y rechazo usan ESTADOS_APROBACION en
+  -- src/db/db.js; tests/dbAprobacion.test.js cubre sus transiciones
+  -- condicionales. Las escrituras SQL directas no tienen CHECK que las valide.
   estado_aprobacion TEXT NOT NULL DEFAULT 'pendiente',
 
   -- Secreto de la entrada: 22 caracteres base64url (128 bits aleatorios).
@@ -111,13 +107,10 @@ CREATE TABLE IF NOT EXISTS registros (
   -- Timestamp del escaneo que marco el ingreso. NULL = no ingreso todavia.
   -- Es la columna que va a hacer que la entrada sea de UN SOLO USO.
   --
-  -- ESTADO HOY (este commit): ninguna linea de codigo escribe esta columna; el
-  -- router /t/:token todavia no existe. La Tarea 9 del plan
-  -- (docs/superpowers/plans/2026-10-09-qr-entradas.md) la va a setear con un
-  -- UPDATE condicional (`WHERE ticket_token = :token AND ingreso_en IS NULL`),
-  -- nunca leyendo-y-escribiendo: ver "La puerta: /t/:token" en
-  -- docs/superpowers/specs/2026-10-09-qr-entradas-design.md, que es donde ese
-  -- mecanismo esta especificado.
+  -- marcarIngresoSiNoIngreso en src/db/db.js la escribe con un UPDATE
+  -- condicional (`WHERE ticket_token = :token AND ingreso_en IS NULL`),
+  -- nunca leyendo-y-escribiendo. deshacerIngreso la vuelve a NULL;
+  -- tests/dbAprobacion.test.js cubre el uso unico y su reversion.
   ingreso_en        TEXT,
 
   -- OJO con el nombre: significa "n8n acuso recibo del webhook", NO "el

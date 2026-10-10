@@ -69,6 +69,16 @@ class AforoCompletoError extends Error {
   }
 }
 
+// Los tres estados validos de estado_aprobacion. La columna NO lleva CHECK en
+// la base (ver el comentario en src/db/schema.sql: agregarselo a una tabla que
+// ya existe exigiria reconstruirla), asi que ESTE es el unico lugar que define
+// el conjunto valido. Ningun otro modulo debe escribir los strings a mano.
+const ESTADOS_APROBACION = {
+  PENDIENTE: 'pendiente',
+  APROBADO: 'aprobado',
+  RECHAZADO: 'rechazado',
+};
+
 const SQL_INSERTAR_SI_HAY_CUPO = `
   INSERT INTO registros
     (nombre_completo, dni, celular, correo, organizacion, tipo_entrada, precio_pagado, comprobante_url, comprobante_public_id)
@@ -209,6 +219,145 @@ function crearConexion(url, authToken) {
     }
   }
 
+  async function obtenerRegistroPorId(id) {
+    await listo;
+    const resultado = await client.execute({
+      sql: 'SELECT * FROM registros WHERE id = :id',
+      args: { id },
+    });
+    return resultado.rows[0] || null;
+  }
+
+  // Busca por el secreto del QR. El guard de token vacio/no-string NO es
+  // decorativo: hay registros pendientes con ticket_token NULL, y una consulta
+  // con '' o null podria hacer match contra uno de ellos segun como se compare,
+  // lo que equivaldria a entregarle una entrada ajena a quien pida /t/ con un
+  // token vacio.
+  async function obtenerRegistroPorToken(token) {
+    await listo;
+    if (typeof token !== 'string' || token === '') return null;
+    const resultado = await client.execute({
+      sql: 'SELECT * FROM registros WHERE ticket_token = :token',
+      args: { token },
+    });
+    return resultado.rows[0] || null;
+  }
+
+  async function obtenerIdsPendientes(limite) {
+    await listo;
+    const resultado = await client.execute({
+      sql: `
+        SELECT id FROM registros
+        WHERE estado_aprobacion = :pendiente
+        ORDER BY id ASC
+        LIMIT :limite
+      `,
+      args: { pendiente: ESTADOS_APROBACION.PENDIENTE, limite },
+    });
+    return resultado.rows.map((fila) => Number(fila.id));
+  }
+
+  // UPDATE condicional por ESTADO, no solo por id. Esa condicion es lo que
+  // hace que dos clics simultaneos en "Aprobar" no generen dos tokens para la
+  // misma persona: el segundo no afecta ninguna fila y devuelve false, asi que
+  // la ruta sabe que debe borrar el QR que acababa de subir.
+  //
+  // Sentencia unica en autocommit, igual que insertarRegistroSiHayCupo: no se
+  // usa transaccion interactiva (ver el comentario extenso al inicio de este
+  // archivo sobre por que eso es peligroso en serverless).
+  async function aprobarRegistroSiPendiente(id, datosQr) {
+    await listo;
+    const resultado = await client.execute({
+      sql: `
+        UPDATE registros
+        SET estado_aprobacion = :aprobado,
+            ticket_token      = :ticket_token,
+            qr_url            = :qr_url,
+            qr_public_id      = :qr_public_id
+        WHERE id = :id AND estado_aprobacion = :pendiente
+      `,
+      args: {
+        aprobado: ESTADOS_APROBACION.APROBADO,
+        pendiente: ESTADOS_APROBACION.PENDIENTE,
+        ticket_token: datosQr.ticket_token,
+        qr_url: datosQr.qr_url,
+        qr_public_id: datosQr.qr_public_id,
+        id,
+      },
+    });
+    return resultado.rowsAffected > 0;
+  }
+
+  // Un rechazado SIGUE ocupando aforo a proposito: liberar el cupo implicaria
+  // que MAX_AFORO deje de ser el conteo de filas de la tabla, que es
+  // exactamente la invariante sobre la que esta construida la garantia de
+  // concurrencia de insertarRegistroSiHayCupo. Si el organizador quiere
+  // recuperar ese cupo, borra la fila a mano desde Turso.
+  async function rechazarRegistroSiPendiente(id) {
+    await listo;
+    const resultado = await client.execute({
+      sql: `
+        UPDATE registros
+        SET estado_aprobacion = :rechazado
+        WHERE id = :id AND estado_aprobacion = :pendiente
+      `,
+      args: {
+        rechazado: ESTADOS_APROBACION.RECHAZADO,
+        pendiente: ESTADOS_APROBACION.PENDIENTE,
+        id,
+      },
+    });
+    return resultado.rowsAffected > 0;
+  }
+
+  async function marcarCorreoQrEnviado(id) {
+    await listo;
+    await client.execute({
+      sql: 'UPDATE registros SET correo_qr_enviado = 1 WHERE id = :id',
+      args: { id },
+    });
+  }
+
+  // El "UN SOLO USO" de la entrada vive enteramente aca.
+  //
+  // `WHERE ingreso_en IS NULL` dentro de la MISMA sentencia es lo que lo hace
+  // atomico: no se lee el estado y despues se escribe (eso dejaria una ventana
+  // en la que dos escaneos simultaneos leen NULL y ambos marcan). Dos escaneos
+  // del mismo QR desde dos telefonos distintos no pueden ambos recibir true.
+  //
+  // Mismo mecanismo de sentencia unica en autocommit que garantiza el aforo.
+  async function marcarIngresoSiNoIngreso(token) {
+    await listo;
+    if (typeof token !== 'string' || token === '') return false;
+    const resultado = await client.execute({
+      sql: `
+        UPDATE registros
+        SET ingreso_en = datetime('now','localtime')
+        WHERE ticket_token = :token AND ingreso_en IS NULL
+      `,
+      args: { token },
+    });
+    return resultado.rowsAffected > 0;
+  }
+
+  // Existe porque el marcado es automatico al escanear: el staff pierde el
+  // momento de "mirar antes de decidir". Si escanea y el nombre no coincide con
+  // la persona que tiene enfrente, el ingreso ya quedo marcado. Sin esto, el
+  // unico remedio seria editar la base de datos en medio de la fiesta.
+  async function deshacerIngreso(token) {
+    await listo;
+    if (typeof token !== 'string' || token === '') return false;
+    const resultado = await client.execute({
+      sql: `
+        UPDATE registros
+        SET ingreso_en = NULL
+        WHERE ticket_token = :token AND ingreso_en IS NOT NULL
+      `,
+      args: { token },
+    });
+    return resultado.rowsAffected > 0;
+  }
+
   return {
     db: client,
     contarRegistros,
@@ -217,6 +366,14 @@ function crearConexion(url, authToken) {
     marcarWebhookEnviado,
     obtenerConfiguracion,
     guardarPrecios,
+    obtenerRegistroPorId,
+    obtenerRegistroPorToken,
+    obtenerIdsPendientes,
+    aprobarRegistroSiPendiente,
+    rechazarRegistroSiPendiente,
+    marcarCorreoQrEnviado,
+    marcarIngresoSiNoIngreso,
+    deshacerIngreso,
   };
 }
 
@@ -243,6 +400,7 @@ function crearConexionPorDefecto() {
 
 module.exports = {
   AforoCompletoError,
+  ESTADOS_APROBACION,
   crearConexion,
   crearConexionPorDefecto,
 };
