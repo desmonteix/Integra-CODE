@@ -40,7 +40,8 @@
 | `tests/ticketService.test.js` | Token y URL del ticket |
 | `tests/qrService.test.js` | Generación del PNG |
 | `tests/cookieStaff.test.js` | Parseo de cookies |
-| `tests/dbAprobacion.test.js` | Funciones de DB de aprobación e ingreso |
+| `tests/esquema.test.js` | Forma del esquema: paridad entre `schema.sql` y la migración 002, y unicidad de `ticket_token` (Task 1) |
+| `tests/dbAprobacion.test.js` | Funciones de DB de aprobación e ingreso (Task 4) |
 | `tests/adminAprobacion.test.js` | HTTP de aprobar/rechazar/reenviar |
 | `tests/adminLote.test.js` | HTTP del lote (archivo propio por el rate limit) |
 | `tests/ticketHttp.test.js` | HTTP de la puerta |
@@ -65,15 +66,63 @@
 
 ## Task 1: Esquema de base de datos
 
+> ### ⚠️ CORREGIDO DESPUÉS DE LA AUDITORÍA — NO SEGUIR EL SQL DE ESTA TAREA AL PIE DE LA LETRA
+>
+> Esta tarea ya está implementada, y **dos cosas de lo que está escrito abajo
+> resultaron estar mal**. Se dejan tal cual, sin reescribir, para que quede
+> rastro de qué se decidió y por qué cambió. **La fuente de verdad del esquema
+> es el código, no este documento:** `src/db/schema.sql`,
+> `src/db/migrations/002-qr-entradas.sql` y `tests/esquema.test.js`.
+>
+> **1. `schema.sql` NO lleva el `CREATE UNIQUE INDEX` suelto** que aparece en
+> el Step 3 y en el Step 5 de abajo. `IF NOT EXISTS` protege contra un
+> *índice* duplicado, no contra una *columna* ausente: contra la base real de
+> producción, que todavía no tiene las columnas, esa sentencia falla con
+> `no such column: ticket_token`. Y como `src/db/db.js` corre el script
+> completo con `executeMultiple` y las 6 funciones de datos hacen `await` de
+> esa promesa, un fallo ahí devuelve **500 en todo el sitio** — incluido
+> `POST /api/registro`, o sea que deja de venderse. Reproducido contra una
+> base con la forma pre-002.
+>
+> Lo correcto, ya implementado: la unicidad se declara **inline** en la
+> columna (`ticket_token TEXT UNIQUE`) en `schema.sql`, y el índice con nombre
+> `idx_registros_ticket_token` vive **solo** en la migración 002, donde la
+> columna existe porque la misma transacción acaba de agregarla. La regla dura
+> está documentada en la cabecera de `src/db/schema.sql`: ninguna sentencia de
+> ese archivo puede referenciar una columna que podría no existir en una base
+> sin migrar.
+>
+> Consecuencia conocida y aceptada: una base nueva saca la unicidad de un
+> auto-índice implícito (`sqlite_autoindex_registros_1`) y una migrada del
+> índice con nombre. Difiere **solo el nombre**; el comportamiento es idéntico.
+> Por eso `tests/esquema.test.js` verifica la unicidad por **comportamiento** y
+> nunca por nombre de índice.
+>
+> **2. Varios comentarios del SQL de abajo afirman en presente cosas que no
+> existen.** El de `estado_aprobacion` dice que la restricción de los tres
+> valores "se impone en `src/db/db.js` ... y la cubren los tests" — eso pasa en
+> la **Task 4**, no acá. El de `ingreso_en` describe un `UPDATE` que no existe
+> hasta la **Task 9**, y el de `correo_qr_enviado` habla de una etiqueta de
+> `/admin` que no existe hasta la **Task 10**. En el código ya están reescritos
+> en futuro. Al implementar las Tasks 4, 9 y 10, los comentarios de
+> `src/db/schema.sql` hay que pasarlos de futuro a presente.
+>
+> **3. El archivo de test se llama `tests/esquema.test.js`,** no
+> `tests/dbAprobacion.test.js`. Lo que esta tarea verifica es la *forma* del
+> esquema, no lógica de aprobación. `tests/dbAprobacion.test.js` queda libre
+> para los tests de aprobación de verdad, que son los de la **Task 4** — ahí
+> sí corresponde el nombre. Donde abajo (y en la Task 4) se lea
+> `tests/dbAprobacion.test.js` para ESTA tarea, es `tests/esquema.test.js`.
+
 **Files:**
 - Create: `src/db/migrations/002-qr-entradas.sql`
 - Modify: `src/db/schema.sql`
 - Modify: `src/db/migrations/README.md`
-- Test: `tests/dbAprobacion.test.js`
+- Test: `tests/esquema.test.js` (en el plan original decía `tests/dbAprobacion.test.js`; ver la nota de arriba)
 
 **Interfaces:**
 - Consumes: nada (primera tarea).
-- Produces: las columnas `estado_aprobacion`, `ticket_token`, `qr_url`, `qr_public_id`, `ingreso_en`, `correo_qr_enviado` en `registros`, y el índice `idx_registros_ticket_token`.
+- Produces: las columnas `estado_aprobacion`, `ticket_token`, `qr_url`, `qr_public_id`, `ingreso_en`, `correo_qr_enviado` en `registros`, y la unicidad de `ticket_token` (inline en `schema.sql`, como el índice `idx_registros_ticket_token` en la migración 002).
 
 - [ ] **Step 1: Escribir el test que falla**
 

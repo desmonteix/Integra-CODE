@@ -96,7 +96,17 @@ function subirQr(buffer) {
 
 // Borra un asset de QR de Cloudinary. Mismo espiritu que borrarComprobante:
 // no dejar un QR huerfano en Cloudinary cuando la aprobacion falla DESPUES de
-// haber subido la imagen (ver el orden exacto documentado en src/routes/admin.js).
+// haber subido la imagen.
+//
+// ESTADO HOY (este commit): todavia no tiene ningun caller. La ruta de
+// aprobacion (`POST /admin/aprobar`) es la Tarea 6 del plan
+// (docs/superpowers/plans/2026-10-09-qr-entradas.md) y src/routes/admin.js no
+// menciona el QR todavia. El orden exacto en el que esa ruta va a tener que
+// llamar a esta funcion esta especificado en la seccion "Aprobar un registro"
+// de docs/superpowers/specs/2026-10-09-qr-entradas-design.md (resumen: generar
+// token -> generar PNG -> subirQr -> UPDATE condicional por estado; si el
+// UPDATE afecta 0 filas o explota, borrarQr del asset recien subido y dejar el
+// registro pendiente y reintentable).
 async function borrarQr(publicId) {
   return borrarDeLaCarpeta(publicId);
 }

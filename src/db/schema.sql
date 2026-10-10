@@ -63,11 +63,20 @@ CREATE TABLE IF NOT EXISTS registros (
   -- organizador tiene que mirar el comprobante de Yape antes de que se emita
   -- una entrada valida.
   --
-  -- NO lleva CHECK a proposito: agregarselo a una tabla que ya existe en
-  -- produccion exigiria reconstruirla (como hizo la migracion 001 para
-  -- tipo_entrada), que es destructivo. La restriccion de los tres valores
-  -- validos se impone en src/db/db.js, en un unico punto, y la cubren los
-  -- tests.
+  -- NO lleva CHECK a proposito, ni aca ni en la migracion 002: agregarselo a
+  -- una tabla que ya existe en produccion exigiria reconstruirla (como hizo la
+  -- migracion 001 para tipo_entrada), que es destructivo. Y ponerlo SOLO aca
+  -- haria que una base nueva y una base migrada tengan restricciones
+  -- distintas, que es justo la divergencia que hay que evitar entre este
+  -- archivo y src/db/migrations/002-qr-entradas.sql.
+  --
+  -- ESTADO HOY (este commit): NADA en el codigo impone los tres valores.
+  -- `estado_aprobacion` no aparece en src/db/db.js y ningun test lo cubre; lo
+  -- unico que esta vivo es el DEFAULT de esta linea. La Tarea 4 del plan
+  -- (docs/superpowers/plans/2026-10-09-qr-entradas.md) va a imponer los tres
+  -- valores en src/db/db.js, en un unico punto, con tests. Hasta entonces la
+  -- unica fuente de verdad del conjunto de valores validos es
+  -- docs/superpowers/specs/2026-10-09-qr-entradas-design.md.
   estado_aprobacion TEXT NOT NULL DEFAULT 'pendiente',
 
   -- Secreto de la entrada: 22 caracteres base64url (128 bits aleatorios).
@@ -100,14 +109,27 @@ CREATE TABLE IF NOT EXISTS registros (
   qr_public_id      TEXT,
 
   -- Timestamp del escaneo que marco el ingreso. NULL = no ingreso todavia.
-  -- Es la columna que hace que la entrada sea de UN SOLO USO: se setea con un
-  -- UPDATE condicional (WHERE ingreso_en IS NULL), nunca leyendo-y-escribiendo.
+  -- Es la columna que va a hacer que la entrada sea de UN SOLO USO.
+  --
+  -- ESTADO HOY (este commit): ninguna linea de codigo escribe esta columna; el
+  -- router /t/:token todavia no existe. La Tarea 9 del plan
+  -- (docs/superpowers/plans/2026-10-09-qr-entradas.md) la va a setear con un
+  -- UPDATE condicional (`WHERE ticket_token = :token AND ingreso_en IS NULL`),
+  -- nunca leyendo-y-escribiendo: ver "La puerta: /t/:token" en
+  -- docs/superpowers/specs/2026-10-09-qr-entradas-design.md, que es donde ese
+  -- mecanismo esta especificado.
   ingreso_en        TEXT,
 
   -- OJO con el nombre: significa "n8n acuso recibo del webhook", NO "el
   -- correo llego a la persona". El backend no puede saber lo segundo porque
-  -- quien manda el correo es el workflow de n8n. La interfaz de /admin debe
-  -- decir "entregado a n8n", nunca "enviado".
+  -- quien manda el correo es el workflow de n8n.
+  --
+  -- ESTADO HOY (este commit): /admin no renderiza esta columna, asi que no hay
+  -- ninguna etiqueta que corregir todavia. Cuando la Tarea 10 del plan la
+  -- muestre, el texto tiene que decir "entregado a n8n" y nunca "enviado":
+  -- lo segundo seria afirmarle al organizador algo que el backend no puede
+  -- saber (ver el spec, seccion "correo_qr_enviado significa 'n8n acuso
+  -- recibo', no 'el correo llego'").
   correo_qr_enviado INTEGER NOT NULL DEFAULT 0
 );
 
