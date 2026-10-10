@@ -4,10 +4,46 @@
 -- Hace falta un ALTER TABLE manual (o recrear la base) contra esa base real.
 --
 -- Para bases YA creadas, las migraciones manuales viven en
--- src/db/migrations/ (ver el README de esa carpeta). En particular, agregar
--- 'solo_bus' al CHECK de `tipo_entrada` y crear la tabla `configuracion`
--- requiere correr 001-agregar-solo-bus-y-configuracion.sql a mano contra
--- Turso: este script no lo hace por si solo.
+-- src/db/migrations/ (ver el README de esa carpeta). Lo que este script NO
+-- puede hacer por si solo, y hay que correr a mano contra Turso:
+--
+--   * agregar 'solo_bus' al CHECK de `tipo_entrada`
+--     -> 001-agregar-solo-bus-y-configuracion.sql
+--   * agregar las 6 columnas del flujo de QR a `registros`
+--     -> 002-qr-entradas.sql
+--
+-- La tabla `configuracion`, en cambio, SI la crea este script solo: es una
+-- tabla nueva, y lo que no es retroactivo es modificar una tabla que YA
+-- existe. La 001 la incluye igual para que una sola corrida deje la base
+-- entera al dia y verificable.
+--
+-- ===========================================================================
+-- REGLA DURA DE ESTE ARCHIVO — LEER ANTES DE AGREGAR UNA SENTENCIA
+-- ===========================================================================
+--
+-- src/db/db.js corre este script COMPLETO con `client.executeMultiple` en cada
+-- cold start de la funcion serverless, y guarda la promesa en `listo`. Las 6
+-- funciones de datos hacen `await listo`. Si UNA sola sentencia de este script
+-- falla, `executeMultiple` aborta, `listo` queda rechazada, y GET /,
+-- GET /api/estado, POST /api/registro y GET /admin responden 500: el sitio
+-- deja de vender por completo, no solo se rompe la parte nueva.
+--
+-- De ahi la regla: NINGUNA sentencia de este archivo puede referenciar una
+-- columna que podria no existir en una base vieja todavia sin migrar. En la
+-- practica eso significa solo `CREATE TABLE IF NOT EXISTS` (que es un no-op
+-- exacto sobre una tabla que ya existe, sin importar su forma).
+--
+-- Lo que NO sirve: un `CREATE UNIQUE INDEX IF NOT EXISTS ... (ticket_token)`
+-- suelto. `IF NOT EXISTS` protege contra un INDICE duplicado, no contra una
+-- COLUMNA ausente: sobre una base pre-002 falla con
+-- `SQLITE_ERROR: no such column: ticket_token`. Por eso la unicidad de
+-- `ticket_token` se declara INLINE en la columna (ver abajo) y el indice con
+-- nombre vive solo en src/db/migrations/002-qr-entradas.sql, donde la columna
+-- existe porque la misma transaccion acaba de agregarla.
+--
+-- Si hace falta un indice, una vista o un trigger sobre una columna nueva:
+-- va en una migracion de src/db/migrations/, NUNCA aca.
+-- ===========================================================================
 CREATE TABLE IF NOT EXISTS registros (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre_completo   TEXT NOT NULL,
@@ -37,7 +73,26 @@ CREATE TABLE IF NOT EXISTS registros (
   -- Secreto de la entrada: 22 caracteres base64url (128 bits aleatorios).
   -- NULL hasta que el organizador aprueba. Opaco a proposito: no deriva del
   -- id ni del DNI, asi que tener un token no permite inferir otro.
-  ticket_token      TEXT,
+  --
+  -- El UNIQUE es OBLIGATORIO, no decorativo: sin el, dos filas podrian
+  -- compartir token y el escaneo de una persona marcaria el ingreso de otra.
+  --
+  -- Va INLINE en la columna, y NO como `CREATE UNIQUE INDEX` aparte, por la
+  -- regla dura documentada en la cabecera de este archivo: un indice suelto
+  -- sobre `ticket_token` tumba toda la app contra una base pre-002.
+  --
+  -- DIVERGENCIA CONOCIDA CON LA MIGRACION 002 — es solo el NOMBRE del indice:
+  --   * base nueva (este archivo): SQLite crea un auto-indice implicito,
+  --     `sqlite_autoindex_registros_1`.
+  --   * base migrada (002): el indice se llama `idx_registros_ticket_token`,
+  --     porque ALTER TABLE ADD COLUMN no admite UNIQUE y ahi la unicidad SOLO
+  --     puede venir de un CREATE UNIQUE INDEX.
+  -- El COMPORTAMIENTO es identico en los dos casos: rechaza dos tokens no-NULL
+  -- iguales, admite multiples NULL (todos los pendientes), y sirve igual para
+  -- que la busqueda por token en la puerta no recorra la tabla entera. Ningun
+  -- codigo ni ningun test debe depender del nombre del indice; tests/esquema.test.js
+  -- verifica la unicidad por COMPORTAMIENTO justamente por esto.
+  ticket_token      TEXT UNIQUE,
 
   -- PNG del QR en Cloudinary (carpeta qr/). public_id se guarda aparte solo
   -- para poder borrar el asset si la aprobacion falla despues de subirlo.
@@ -55,19 +110,6 @@ CREATE TABLE IF NOT EXISTS registros (
   -- decir "entregado a n8n", nunca "enviado".
   correo_qr_enviado INTEGER NOT NULL DEFAULT 0
 );
-
--- La unicidad de ticket_token NO puede declararse en la columna cuando se
--- agrega con ALTER TABLE (SQLite/libSQL no lo permiten), asi que vive en un
--- indice aparte, identico al de la migracion 002. Sin el, dos filas podrian
--- compartir token y el escaneo de una persona marcaria el ingreso de otra.
---
--- Un indice UNIQUE en SQLite admite multiples NULL, asi que convive sin
--- problema con todos los registros pendientes (todos con ticket_token NULL).
---
--- Tambien es el indice que hace que la busqueda por token en la puerta no
--- recorra la tabla entera.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_registros_ticket_token
-  ON registros (ticket_token);
 
 -- Configuracion editable en runtime, como clave/valor de texto.
 --

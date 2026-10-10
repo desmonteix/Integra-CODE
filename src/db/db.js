@@ -95,7 +95,20 @@ function crearConexion(url, authToken) {
   const schemaPath = path.join(__dirname, 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   // executeMultiple corre un script con (potencialmente) varias sentencias
-  // separadas por ';'. El schema es idempotente (CREATE TABLE IF NOT EXISTS).
+  // separadas por ';'. schema.sql consiste SOLO de `CREATE TABLE IF NOT
+  // EXISTS`: idempotente (correrlo N veces equivale a correrlo una) y, sobre
+  // una tabla que ya existe, un no-op exacto sin importar que forma tenga esa
+  // tabla.
+  //
+  // Esa segunda propiedad es la que importa aca y no es gratis: si una sola
+  // sentencia de schema.sql fallara, executeMultiple aborta, `listo` queda
+  // rechazada, y como las 6 funciones de datos de abajo hacen `await listo`,
+  // TODA la app responde 500 — incluida la venta de entradas, que no tiene
+  // nada que ver con lo que haya fallado. Por eso schema.sql no puede
+  // contener ninguna sentencia que referencie una columna que podria no
+  // existir en la base de produccion todavia sin migrar (indices, vistas,
+  // triggers): esos van en src/db/migrations/. La regla esta documentada en
+  // la cabecera de src/db/schema.sql y la cubre tests/esquema.test.js.
   const listo = client.executeMultiple(schemaSql);
 
   async function contarRegistros() {
