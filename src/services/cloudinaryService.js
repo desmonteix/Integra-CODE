@@ -1,5 +1,5 @@
 // src/services/cloudinaryService.js
-// Wrapper del SDK de Cloudinary para subir/borrar el comprobante de pago.
+// Wrapper del SDK de Cloudinary para subir/borrar assets (comprobantes y QR).
 //
 // Se exporta un OBJETO (no funciones sueltas) a proposito: en
 // src/routes/api.js se debe hacer
@@ -9,9 +9,11 @@
 // porque desestructurar capturaria la referencia original a la funcion. Al
 // exportar el objeto y acceder siempre como `cloudinaryService.metodo(...)`,
 // un test puede reemplazar `cloudinaryService.subirComprobante` /
-// `cloudinaryService.borrarComprobante` por un stub ANTES de disparar
-// requests contra la app real, sin credenciales reales de Cloudinary y sin
-// agregar ninguna libreria de mocking.
+// `cloudinaryService.subirQr` / `cloudinaryService.borrarComprobante` /
+// `cloudinaryService.borrarQr` por stubs ANTES de disparar requests contra la
+// app real, sin credenciales reales de Cloudinary y sin agregar ninguna
+// libreria de mocking. Las funciones publicas son independientemente stubables:
+// un test puede reemplazar subirComprobante sin afectar subirQr.
 
 const cloudinary = require('cloudinary').v2;
 const config = require('../config');
@@ -42,11 +44,13 @@ function inicializar() {
   });
 }
 
-// Sube un Buffer en memoria (req.file.buffer de multer.memoryStorage) sin
-// tocar disco, via upload_stream. Devuelve { secure_url, public_id }.
-function subirComprobante(buffer) {
+// ===== Private helpers para reducir duplicacion =====
+
+// Helper privado que sube un Buffer a una carpeta dada, sin tocar disco,
+// via upload_stream. Devuelve { secure_url, public_id }.
+function subirALaCarpeta(buffer, carpeta) {
   return new Promise((resolve, reject) => {
-    const streamUpload = cloudinary.uploader.upload_stream({ folder: 'comprobantes' }, (error, result) => {
+    const streamUpload = cloudinary.uploader.upload_stream({ folder: carpeta }, (error, result) => {
       if (error) return reject(error);
       resolve({ secure_url: result.secure_url, public_id: result.public_id });
     });
@@ -54,13 +58,27 @@ function subirComprobante(buffer) {
   });
 }
 
-// Borra un asset previamente subido (equivalente exacto al
+// Helper privado que borra un asset de Cloudinary si el publicId es valido.
+// No lanza si el publicId es falsy (null, undefined, vacio).
+async function borrarDeLaCarpeta(publicId) {
+  if (!publicId) return;
+  await cloudinary.uploader.destroy(publicId);
+}
+
+// ===== Funciones publicas =====
+
+// Sube un Buffer en memoria (req.file.buffer de multer.memoryStorage) sin
+// tocar disco, via upload_stream. Devuelve { secure_url, public_id }.
+function subirComprobante(buffer) {
+  return subirALaCarpeta(buffer, 'comprobantes');
+}
+
+// Borra un asset de comprobante previamente subido (equivalente exacto al
 // borrarArchivoSiExiste que antes borraba el archivo huerfano en disco:
 // mismo espiritu, no dejar basura huerfana en Cloudinary cuando el registro
 // termina fallando despues de subir la imagen).
 async function borrarComprobante(publicId) {
-  if (!publicId) return;
-  await cloudinary.uploader.destroy(publicId);
+  return borrarDeLaCarpeta(publicId);
 }
 
 // Sube el PNG del QR generado en memoria (ver src/services/qrService.js) a la
@@ -73,21 +91,14 @@ async function borrarComprobante(publicId) {
 // el secreto de la entrada a cualquiera que viera el nombre del asset en el
 // dashboard o en un log.
 function subirQr(buffer) {
-  return new Promise((resolve, reject) => {
-    const streamUpload = cloudinary.uploader.upload_stream({ folder: 'qr' }, (error, result) => {
-      if (error) return reject(error);
-      resolve({ secure_url: result.secure_url, public_id: result.public_id });
-    });
-    streamUpload.end(buffer);
-  });
+  return subirALaCarpeta(buffer, 'qr');
 }
 
-// Mismo espiritu que borrarComprobante: no dejar un QR huerfano en Cloudinary
-// cuando la aprobacion falla DESPUES de haber subido la imagen (ver el orden
-// exacto documentado en src/routes/admin.js).
+// Borra un asset de QR de Cloudinary. Mismo espiritu que borrarComprobante:
+// no dejar un QR huerfano en Cloudinary cuando la aprobacion falla DESPUES de
+// haber subido la imagen (ver el orden exacto documentado en src/routes/admin.js).
 async function borrarQr(publicId) {
-  if (!publicId) return;
-  await cloudinary.uploader.destroy(publicId);
+  return borrarDeLaCarpeta(publicId);
 }
 
 module.exports = {
