@@ -83,6 +83,15 @@ test('BASE_URL invalida aborta antes de generar o subir el QR', async () => {
   });
 });
 
+test('usa la BASE_URL ya validada por el lote sin volver a leer la configuracion', async () => {
+  await conDobles(async ({ db, eventos }) => {
+    config.baseUrl = 'mal-configurada';
+    const registro = await emitirEntrada(db, 7, { baseUrlValidada: 'https://ejemplo.test' });
+    assert.equal(registro.estado_aprobacion, 'aprobado');
+    assert.equal(eventos[1][1], 'https://ejemplo.test/t/TokenDePrueba1');
+  });
+});
+
 test('si pierde la carrera de aprobacion borra el QR subido', async () => {
   await conDobles(async ({ db, eventos }) => {
     assert.equal(await emitirEntrada(db, 7), null);

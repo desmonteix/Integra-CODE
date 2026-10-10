@@ -22,14 +22,14 @@ async function borrarQrSiExiste(publicId) {
   }
 }
 
-async function emitirEntrada(dbConexion, id) {
+async function emitirEntrada(dbConexion, id, { baseUrlValidada } = {}) {
   const registro = await dbConexion.obtenerRegistroPorId(id);
   if (!registro || registro.estado_aprobacion !== ESTADOS_APROBACION.PENDIENTE) {
     return null;
   }
 
   // Falla antes de crear o subir un QR si la URL publica esta mal configurada.
-  const baseValidada = ticketService.obtenerBaseUrlValidada();
+  const baseValidada = baseUrlValidada ?? ticketService.obtenerBaseUrlValidada();
 
   for (let intento = 1; intento <= MAX_INTENTOS_TOKEN; intento++) {
     const token = ticketService.generarToken();
