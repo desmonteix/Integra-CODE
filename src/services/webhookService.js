@@ -1,7 +1,7 @@
 // src/services/webhookService.js
-// Envio "best effort" de registros y entradas aprobadas al webhook de n8n. Nunca debe
-// bloquear ni afectar la respuesta HTTP ya enviada al cliente: se invoca sin
-// `await` desde la ruta, despues de responder. Si N8N_WEBHOOK_URL no esta
+// Envio "best effort" de registros y entradas aprobadas al webhook de n8n.
+// La aprobacion espera este envio antes de responder, para que Vercel no
+// interrumpa la tarea al cerrar la funcion. Si N8N_WEBHOOK_URL no esta
 // configurada, o si todos los intentos fallan, se loguea y se retorna sin
 // lanzar ninguna excepcion (nunca debe producir un unhandled rejection ni
 // tirar abajo el proceso).
@@ -74,7 +74,7 @@ async function intentarEnvioUnaVez(payload) {
 }
 
 // Motor comun de envio. Un fallo de n8n o de la marca en DB nunca rechaza la
-// promesa: ambas funciones se pueden invocar despues de responder por HTTP.
+// promesa: la aprobacion puede esperarla sin convertir el fallo en error HTTP.
 async function enviarBestEffort(payload, descripcion, marcarEnviado) {
   if (!config.n8nWebhookUrl) {
     console.info(`N8N_WEBHOOK_URL no configurada, se omite el envio de ${descripcion}.`);

@@ -311,9 +311,10 @@ function crearRouterAdmin(dbConexion) {
       return volverAlPanel(req, res, 'error_aprobar');
     }
     if (!aprobado) return volverAlPanel(req, res, 'no_pendiente');
-    volverAlPanel(req, res, 'aprobado');
-    // El envio no bloquea la respuesta ni revierte la aprobacion guardada.
-    enviarCorreoQrBestEffort(aprobado, dbConexion);
+    // En Vercel, una tarea sin await puede detenerse al cerrar la respuesta.
+    // El envio es best effort: si n8n falla, la entrada aprobada se conserva.
+    await enviarCorreoQrBestEffort(aprobado, dbConexion);
+    return volverAlPanel(req, res, 'aprobado');
   }));
 
   router.post('/rechazar', envolverAsync(async (req, res) => {
@@ -330,8 +331,8 @@ function crearRouterAdmin(dbConexion) {
     if (!registro || registro.estado_aprobacion !== ESTADOS_APROBACION.APROBADO) {
       return volverAlPanel(req, res, 'no_aprobado');
     }
-    volverAlPanel(req, res, 'reenviado');
-    enviarCorreoQrBestEffort(registro, dbConexion);
+    await enviarCorreoQrBestEffort(registro, dbConexion);
+    return volverAlPanel(req, res, 'reenviado');
   }));
 
   router.post('/aprobar-pendientes', envolverAsync(async (req, res) => {
@@ -363,8 +364,10 @@ function crearRouterAdmin(dbConexion) {
       lote_error: String(fallidos),
       lote_restantes: restantes > LIMITE_LOTE ? `${LIMITE_LOTE}+` : String(restantes),
     });
-    res.redirect(303, `/admin?${params.toString()}`);
-    for (const aprobado of aprobados) enviarCorreoQrBestEffort(aprobado, dbConexion);
+    // Los avisos se esperan en paralelo antes del redirect para que Vercel no
+    // congele los envios pendientes al terminar la funcion.
+    await Promise.all(aprobados.map((aprobado) => enviarCorreoQrBestEffort(aprobado, dbConexion)));
+    return res.redirect(303, `/admin?${params.toString()}`);
   }));
 
   return router;

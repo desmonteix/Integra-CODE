@@ -74,6 +74,43 @@ test('aprobar emite una entrada y repetir o reenviar conserva el QR', async () =
   });
 });
 
+test('aprobar espera la respuesta de n8n antes de cerrar la funcion', async () => {
+  await conPanel(async ({ conexion, post }) => {
+    const id = await conexion.insertarRegistroSiHayCupo(REGISTRO, 150);
+    const fetchOriginal = global.fetch;
+    const urlWebhook = 'https://n8n.example.test/webhook/qr';
+    config.n8nWebhookUrl = urlWebhook;
+    let liberarWebhook;
+    let confirmarInicio;
+    const webhookIniciado = new Promise((resolve) => { confirmarInicio = resolve; });
+    const webhookPendiente = new Promise((resolve) => { liberarWebhook = resolve; });
+    global.fetch = (url, opciones) => {
+      if (url === urlWebhook) {
+        assert.equal(opciones.method, 'POST');
+        assert.equal(JSON.parse(opciones.body).evento, 'entrada_aprobada');
+        confirmarInicio();
+        return webhookPendiente.then(() => ({ ok: true }));
+      }
+      return fetchOriginal(url, opciones);
+    };
+    try {
+      const solicitud = post('aprobar', { id });
+      await webhookIniciado;
+      const respondioAntesDeN8n = await Promise.race([
+        solicitud.then(() => true),
+        new Promise((resolve) => setTimeout(() => resolve(false), 50)),
+      ]);
+      assert.equal(respondioAntesDeN8n, false);
+      liberarWebhook();
+      aviso(await solicitud, 'aprobado');
+      assert.equal((await conexion.obtenerRegistroPorId(id)).correo_qr_enviado, 1);
+    } finally {
+      liberarWebhook();
+      global.fetch = fetchOriginal;
+    }
+  });
+});
+
 test('rechazar no emite QR y un pendiente no puede reenviar', async () => {
   await conPanel(async ({ conexion, post, subidas }) => {
     const id = await conexion.insertarRegistroSiHayCupo(REGISTRO, 150);
