@@ -1,8 +1,9 @@
 // src/routes/admin.js
 // GET  /admin?key=...         — panel del organizador.
 // POST /admin/precios?key=... — guarda los 3 precios en la DB.
+// POST /admin/aprobar|rechazar|reenviar?key=... — opera una entrada por id.
 //
-// Ambas protegidas por un secreto compartido simple (ADMIN_KEY), no es un
+// Todas protegidas por un secreto compartido simple (ADMIN_KEY), no es un
 // sistema de cuentas. Si ADMIN_KEY no esta configurado, o la key no coincide,
 // responden 404 (no revela que la ruta existe). POST /admin/precios reusa
 // EXACTAMENTE el mismo claveCoincide (comparacion en tiempo constante) y el
@@ -25,7 +26,6 @@
 //   - El redirect post-guardado apunta a nuestro propio /admin, no a un host
 //     externo.
 
-const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const config = require('../config');
@@ -37,6 +37,11 @@ const {
 const { resolverPrecios, validarPrecios } = require('../services/preciosService');
 const { envolverAsync } = require('../middleware/asyncHandler');
 const { generarClaveCliente, VALIDACIONES_RATE_LIMIT } = require('../middleware/rateLimitCliente');
+const { claveCoincide } = require('../services/claveAdmin');
+const { emitirEntrada } = require('../services/entradaService');
+const { BaseUrlError } = require('../services/ticketService');
+const { enviarCorreoQrBestEffort } = require('../services/webhookService');
+const { ESTADOS_APROBACION } = require('../db/db');
 
 // Confirmado en auditoria: 30 intentos consecutivos de ADMIN_KEY incorrecta
 // se procesaron en segundos sin ningun throttling ni bloqueo — la
@@ -67,18 +72,6 @@ const limiteAdmin = rateLimit({
   },
 });
 
-// Comparacion en tiempo constante: evita que una diferencia de timing entre
-// "clave incorrecta" y "clave correcta" filtre informacion sobre cuantos
-// caracteres coinciden. Impacto real bajo dado el uso esporadico de esta
-// ruta, pero es una defensa gratuita y estandar para comparar secretos.
-function claveCoincide(claveRecibida, claveConfigurada) {
-  if (!claveConfigurada || typeof claveRecibida !== 'string') return false;
-  const bufRecibida = Buffer.from(claveRecibida);
-  const bufConfigurada = Buffer.from(claveConfigurada);
-  if (bufRecibida.length !== bufConfigurada.length) return false;
-  return crypto.timingSafeEqual(bufRecibida, bufConfigurada);
-}
-
 function crearRouterAdmin(dbConexion) {
   const router = express.Router();
 
@@ -86,7 +79,7 @@ function crearRouterAdmin(dbConexion) {
   // Los tres pasos estan antes de cualquier handler, y el orden entre ellos
   // es deliberado (ver abajo por que el parser va ULTIMO).
 
-  // 1. Rate limit. Cubre por igual GET / y POST /precios (router.use se
+  // 1. Rate limit. Cubre GET / y todas las escrituras del panel (router.use se
   // aplica a todos los metodos y a todas las sub-rutas del router). Una
   // andanada de POST no puede esquivarlo ni "gastarlo" en otra ruta: el
   // contador es por cliente para todo el router, no por ruta.
@@ -215,7 +208,7 @@ function crearRouterAdmin(dbConexion) {
     })
   );
 
-  // Unica ruta de ESCRITURA del panel. Guarda los 3 precios en la tabla
+  // Guarda los 3 precios en la tabla
   // `configuracion` (ver guardarPrecios en src/db/db.js).
   //
   // NO toca `precio_pagado` de ningun registro existente: esa columna
@@ -271,6 +264,58 @@ function crearRouterAdmin(dbConexion) {
       return res.redirect(303, `/admin?key=${encodeURIComponent(req.query.key)}&guardado=1`);
     })
   );
+
+  // Avisos conocidos, sin texto del request; 303 evita repetir la escritura.
+  function volverAlPanel(req, res, aviso) {
+    const params = new URLSearchParams({ key: req.query.key });
+    if (aviso) params.set('aviso', aviso);
+    return res.redirect(303, `/admin?${params.toString()}`);
+  }
+
+  function leerIdDelCuerpo(cuerpo) {
+    const valor = cuerpo && cuerpo.id;
+    if (typeof valor !== 'string' || !/^[1-9]\d*$/.test(valor)) return null;
+    const id = Number(valor);
+    return Number.isSafeInteger(id) ? id : null;
+  }
+
+  router.post('/aprobar', envolverAsync(async (req, res) => {
+    const id = leerIdDelCuerpo(req.body);
+    if (id === null) return volverAlPanel(req, res, 'id_invalido');
+    let aprobado;
+    try {
+      aprobado = await emitirEntrada(dbConexion, id);
+    } catch (err) {
+      if (err instanceof BaseUrlError) {
+        console.error('No se puede aprobar:', err.message);
+        return volverAlPanel(req, res, 'falta_base_url');
+      }
+      console.error('Error al emitir la entrada del registro id=', id, err);
+      return volverAlPanel(req, res, 'error_aprobar');
+    }
+    if (!aprobado) return volverAlPanel(req, res, 'no_pendiente');
+    volverAlPanel(req, res, 'aprobado');
+    // El envio no bloquea la respuesta ni revierte la aprobacion guardada.
+    enviarCorreoQrBestEffort(aprobado, dbConexion);
+  }));
+
+  router.post('/rechazar', envolverAsync(async (req, res) => {
+    const id = leerIdDelCuerpo(req.body);
+    if (id === null) return volverAlPanel(req, res, 'id_invalido');
+    const rechazo = await dbConexion.rechazarRegistroSiPendiente(id);
+    return volverAlPanel(req, res, rechazo ? 'rechazado' : 'no_pendiente');
+  }));
+
+  router.post('/reenviar', envolverAsync(async (req, res) => {
+    const id = leerIdDelCuerpo(req.body);
+    if (id === null) return volverAlPanel(req, res, 'id_invalido');
+    const registro = await dbConexion.obtenerRegistroPorId(id);
+    if (!registro || registro.estado_aprobacion !== ESTADOS_APROBACION.APROBADO) {
+      return volverAlPanel(req, res, 'no_aprobado');
+    }
+    volverAlPanel(req, res, 'reenviado');
+    enviarCorreoQrBestEffort(registro, dbConexion);
+  }));
 
   return router;
 }
