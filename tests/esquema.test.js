@@ -478,14 +478,14 @@ test('los dos caminos tienen un indice UNICO sobre ticket_token, sin importar co
   // sobre todas las filas.
   assert.equal(enNueva.partial, 0);
   assert.equal(enMigrada.partial, 0);
-  // Y aca esta la divergencia conocida, afirmada como lo que es: los nombres
-  // difieren, y eso esta bien. Ver src/db/migrations/README.md.
-  assert.notEqual(
-    enNueva.nombre,
-    enMigrada.nombre,
-    'si los nombres coincidieran, probablemente schema.sql volvio a tener un ' +
-      'CREATE UNIQUE INDEX suelto: eso tumba la app contra una base sin migrar'
-  );
+  // El NOMBRE del indice no se compara a proposito (ver la cabecera de esta
+  // seccion): hoy difieren porque 002 no puede declarar UNIQUE inline (ALTER
+  // TABLE ADD COLUMN no lo admite), pero nada obliga a que sigan difiriendo
+  // para siempre. Si una futura migracion 003 reconstruyera la tabla con
+  // `ticket_token TEXT UNIQUE` inline igual que hizo 001 con tipo_entrada, los
+  // dos nombres coincidirian y eso seria una MEJORA, no una regresion: un
+  // assert.notEqual aca haria fallar exactamente el caso en el que el
+  // esquema se puso mejor.
 });
 
 // ===========================================================================
@@ -537,6 +537,17 @@ test('una fila que ya existia antes de la 002 tambien queda pendiente, sin UPDAT
 // Estado de estado_aprobacion en este commit
 // ===========================================================================
 
+// Lee el DDL real de la tabla `registros` desde sqlite_master. A diferencia
+// de `PRAGMA table_info`, esto SI reporta CHECK (y UNIQUE): es la unica forma
+// de detectar un CHECK agregado a un solo lado sin depender de que el valor
+// de prueba de un test de comportamiento choque justo con ese CHECK.
+async function sqlDeTablaRegistros(client) {
+  const resultado = await client.execute(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='registros'"
+  );
+  return resultado.rows[0].sql;
+}
+
 test('estado_aprobacion NO tiene CHECK en ninguno de los dos caminos', async () => {
   // Afirmado como test porque es facil de "arreglar" por error. Agregar el
   // CHECK solo a schema.sql haria que una base nueva y una migrada tuvieran
@@ -546,8 +557,32 @@ test('estado_aprobacion NO tiene CHECK en ninguno de los dos caminos', async () 
   //
   // La restriccion de los tres valores validos la va a imponer la Tarea 4 en
   // src/db/db.js, en un unico punto. HOY NO EXISTE: por eso este test
-  // comprueba que la base acepta cualquier texto, para que quede explicito que
-  // nada lo esta impidiendo todavia y nadie asuma lo contrario.
+  // comprueba, en LOS DOS CAMINOS, que (a) el DDL no declara un CHECK sobre
+  // esta columna y (b) la base acepta cualquier texto en ella. (a) es lo que
+  // hace que el nombre del test sea cierto: un CHECK agregado SOLO a la
+  // migracion 002 nunca tocaria el camino de base nueva, asi que un test de
+  // comportamiento corrido solo ahi jamas lo veria. Leer sqlite_master cierra
+  // ese agujero porque se corre contra los dos caminos.
+  const sqlNueva = await conBaseNueva((conexion) => sqlDeTablaRegistros(conexion.db));
+  const sqlMigrada = await conBaseMigrada((client) => sqlDeTablaRegistros(client));
+
+  const tieneCheckSobreEstado = (sql) => /CHECK\s*\(\s*estado_aprobacion\b/i.test(sql);
+
+  assert.ok(
+    !tieneCheckSobreEstado(sqlNueva),
+    'src/db/schema.sql tiene un CHECK sobre estado_aprobacion: moverlo a src/db/db.js (Tarea 4) ' +
+      'en vez de a la tabla, o agregarlo tambien a la migracion 002 para no divergir'
+  );
+  assert.ok(
+    !tieneCheckSobreEstado(sqlMigrada),
+    'src/db/migrations/002-qr-entradas.sql tiene un CHECK sobre estado_aprobacion: agregarlo a ' +
+      'una tabla que ya esta en produccion exige reconstruirla (destructivo), ver el comentario ' +
+      'de schema.sql junto a esta columna'
+  );
+
+  // Y el comportamiento, en los dos caminos: hoy se puede escribir cualquier
+  // texto en la columna, para que quede explicito que nada lo esta impidiendo
+  // todavia y nadie asuma lo contrario.
   await conBaseNueva(async (conexion) => {
     const id = await conexion.insertarRegistroSiHayCupo(REGISTRO_BASE, 150);
     await conexion.db.execute({
@@ -555,11 +590,30 @@ test('estado_aprobacion NO tiene CHECK en ninguno de los dos caminos', async () 
       args: { e: 'cualquier-cosa', id },
     });
     const fila = (await conexion.db.execute('SELECT estado_aprobacion FROM registros')).rows[0];
-    assert.equal(
-      fila.estado_aprobacion,
-      'cualquier-cosa',
-      'si esto empieza a fallar es porque alguien agrego un CHECK: revisar que este en ' +
-        'schema.sql Y en una migracion, o moverlo a src/db/db.js como dice el plan'
-    );
+    assert.equal(fila.estado_aprobacion, 'cualquier-cosa');
+  });
+
+  await conBaseMigrada(async (client) => {
+    const resultado = await client.execute({
+      sql: `INSERT INTO registros
+              (nombre_completo, dni, celular, correo, organizacion, tipo_entrada,
+               precio_pagado, comprobante_url, comprobante_public_id)
+            VALUES (:nombre_completo, :dni, :celular, :correo, :organizacion,
+                    :tipo_entrada, :precio_pagado, :comprobante_url,
+                    :comprobante_public_id)`,
+      args: REGISTRO_BASE,
+    });
+    const id = Number(resultado.lastInsertRowid);
+    await client.execute({
+      sql: 'UPDATE registros SET estado_aprobacion = :e WHERE id = :id',
+      args: { e: 'cualquier-cosa', id },
+    });
+    const fila = (
+      await client.execute({
+        sql: 'SELECT estado_aprobacion FROM registros WHERE id = :id',
+        args: { id },
+      })
+    ).rows[0];
+    assert.equal(fila.estado_aprobacion, 'cualquier-cosa');
   });
 });
