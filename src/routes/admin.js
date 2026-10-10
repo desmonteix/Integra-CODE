@@ -39,9 +39,12 @@ const { envolverAsync } = require('../middleware/asyncHandler');
 const { generarClaveCliente, VALIDACIONES_RATE_LIMIT } = require('../middleware/rateLimitCliente');
 const { claveCoincide } = require('../services/claveAdmin');
 const { emitirEntrada } = require('../services/entradaService');
-const { BaseUrlError } = require('../services/ticketService');
+const { BaseUrlError, obtenerBaseUrlValidada } = require('../services/ticketService');
 const { enviarCorreoQrBestEffort } = require('../services/webhookService');
 const { ESTADOS_APROBACION } = require('../db/db');
+
+// Tandas acotadas para que cada request serverless pueda terminar y reanudarse.
+const LIMITE_LOTE = 10;
 
 // Confirmado en auditoria: 30 intentos consecutivos de ADMIN_KEY incorrecta
 // se procesaron en segundos sin ningun throttling ni bloqueo — la
@@ -315,6 +318,39 @@ function crearRouterAdmin(dbConexion) {
     }
     volverAlPanel(req, res, 'reenviado');
     enviarCorreoQrBestEffort(registro, dbConexion);
+  }));
+
+  router.post('/aprobar-pendientes', envolverAsync(async (req, res) => {
+    let baseUrlValidada;
+    try {
+      // Validar una sola vez, antes de consultar o modificar la tanda.
+      baseUrlValidada = obtenerBaseUrlValidada();
+    } catch (err) {
+      if (!(err instanceof BaseUrlError)) throw err;
+      console.error('Lote abortado:', err.message);
+      return volverAlPanel(req, res, 'falta_base_url');
+    }
+    const ids = await dbConexion.obtenerIdsPendientes(LIMITE_LOTE);
+    const aprobados = [];
+    let fallidos = 0;
+    // En serie para limitar la presion sobre Cloudinary y conservar el progreso.
+    for (const id of ids) {
+      try {
+        const aprobado = await emitirEntrada(dbConexion, id, { baseUrlValidada });
+        if (aprobado) aprobados.push(aprobado);
+      } catch (err) {
+        fallidos++;
+        console.error('Fallo al emitir la entrada del registro id=', id, err);
+      }
+    }
+    const restantes = (await dbConexion.obtenerIdsPendientes(LIMITE_LOTE + 1)).length;
+    const params = new URLSearchParams({
+      key: req.query.key, aviso: 'lote', lote_ok: String(aprobados.length),
+      lote_error: String(fallidos),
+      lote_restantes: restantes > LIMITE_LOTE ? `${LIMITE_LOTE}+` : String(restantes),
+    });
+    res.redirect(303, `/admin?${params.toString()}`);
+    for (const aprobado of aprobados) enviarCorreoQrBestEffort(aprobado, dbConexion);
   }));
 
   return router;
