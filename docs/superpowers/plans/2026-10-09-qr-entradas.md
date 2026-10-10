@@ -32,6 +32,8 @@
 |---|---|
 | `src/db/migrations/002-qr-entradas.sql` | Migración manual: columnas nuevas + índice único |
 | `src/services/ticketService.js` | Generar token, armar la URL del ticket, validar `BASE_URL` |
+| `src/services/entradaService.js` | **Dueño de "emitir una entrada"**: token → URL → PNG → subida → `UPDATE` condicional → compensación. Agregado por corrección de arquitectura, ver la Task 6 |
+| `tests/entradaService.test.js` | La orquestación de emisión, probada sin HTTP |
 | `src/services/qrService.js` | Convertir una URL en un Buffer PNG |
 | `src/services/claveAdmin.js` | `claveCoincide` compartido entre `/admin` y `/t` |
 | `src/services/cookieStaff.js` | Parsear y validar la cookie de staff |
@@ -399,7 +401,9 @@ git commit -m "Agregar esquema del flujo de QR de entrada"
 - Produces:
   - `generarToken()` → `string` de 22 caracteres base64url.
   - `armarUrlTicket(token)` → `string` URL absoluta; **lanza `Error`** si `config.baseUrl` está vacío.
-  - `BaseUrlFaltanteError` (clase) para que las rutas distingan este fallo de un 500 genérico.
+  - `BaseUrlError` (clase base) con dos hijas: `BaseUrlFaltanteError` (`BASE_URL` vacía) y `BaseUrlInvalidaError` (`BASE_URL` presente pero con una forma que no sirve). **Las rutas capturan la clase base `BaseUrlError`, nunca una hija sola** — atrapar solo una manda la otra al catch genérico y pierde el mensaje accionable.
+
+> **Corrección aplicada después de implementar (ver el ledger del plan):** el texto original de esta tarea especificaba una sola clase `BaseUrlFaltanteError` y ninguna validación de forma. Una auditoría encontró que `BASE_URL` sin esquema o con espacios producía QR que ninguna cámara abre, y que el error se vuelve visible recién en la puerta del evento. La implementación real tiene la jerarquía de tres clases descrita arriba más validación de forma. El código de ejemplo que sigue en esta tarea es el original y **no** refleja eso: la fuente de verdad es `src/services/ticketService.js`.
 
 - [ ] **Step 1: Escribir el test que falla**
 
@@ -1868,7 +1872,7 @@ const { claveCoincide } = require('../services/claveAdmin');
 Agregar los requires nuevos arriba del archivo:
 
 ```js
-const { generarToken, armarUrlTicket, BaseUrlFaltanteError } = require('../services/ticketService');
+const { generarToken, armarUrlTicket, BaseUrlError } = require('../services/ticketService');
 const { generarPngQr } = require('../services/qrService');
 const cloudinaryService = require('../services/cloudinaryService');
 const { enviarCorreoQrBestEffort } = require('../services/webhookService');
@@ -1897,6 +1901,21 @@ Agregar, dentro de `crearRouterAdmin` y antes del `return router`, los helpers y
     return Number.isSafeInteger(id) && id > 0 ? id : null;
   }
 
+> **CORRECCIÓN DE ARQUITECTURA aplicada después de auditar — leer antes de implementar esta tarea.**
+>
+> El texto original de esta tarea definía `emitirEntrada(id)` **dentro** de `crearRouterAdmin`, como se ve en el código de abajo. Dos auditorías independientes lo marcaron como defecto de cimientos, y con razón: nadie era dueño de la operación "emitir una entrada" (token → URL → PNG → subida → `UPDATE` condicional → borrado compensatorio). Tres consecuencias concretas que ya se habían materializado:
+>
+> 1. **El reintento ante colisión de token que el spec exige no aparecía en ninguna parte del plan**, porque necesita `generarToken` y el `UPDATE` condicional en el mismo scope, y ese scope no existía.
+> 2. La lógica de mayor riesgo del sistema quedaba testeable **solo por HTTP**, con stubs de Cloudinary y un servidor levantado, en vez de directamente.
+> 3. Obligaba a duplicar `borrarComprobanteSiExiste` (que ya existe en `src/routes/api.js`) como `borrarQrSiExiste` en otro router.
+>
+> **Implementar así en su lugar:** crear `src/services/entradaService.js` que exporte `emitirEntrada(dbConexion, id)`, con el mismo orden de pasos y el mismo protocolo de compensación descrito abajo, **más** el reintento por colisión de token. El router queda reducido a: guard → parsear id → llamar al service → redirect. Los tests del service van en `tests/entradaService.test.js` y prueban la orquestación directamente, sin HTTP.
+>
+> El reintento por colisión: `aprobarRegistroSiPendiente` puede fallar por violación del índice único de `ticket_token`. Con 128 bits eso no va a pasar nunca, pero si pasa no debe manifestarse como un 500 sin explicación — hay que generar un token nuevo y reintentar, con un tope chico de intentos, y **borrar el QR de cada intento perdido** para no dejar assets huérfanos.
+>
+> El código que sigue es el original y queda como referencia del orden de pasos y del protocolo de limpieza, que no cambian. Lo que cambia es **dónde vive**.
+
+```js
   // Emite la entrada de UN registro pendiente: token, QR, subida y UPDATE
   // condicional.
   //
@@ -1921,7 +1940,7 @@ Agregar, dentro de `crearRouterAdmin` y antes del `return router`, los helpers y
     }
 
     const token = generarToken();
-    const urlTicket = armarUrlTicket(token); // lanza BaseUrlFaltanteError si falta
+    const urlTicket = armarUrlTicket(token); // lanza BaseUrlError si falta o es invalida
     const png = await generarPngQr(urlTicket);
 
     const { secure_url: qrUrl, public_id: qrPublicId } = await cloudinaryService.subirQr(png);
@@ -1945,7 +1964,11 @@ Agregar, dentro de `crearRouterAdmin` y antes del `return router`, los helpers y
 
     return { ...registro, ticket_token: token, qr_url: qrUrl, qr_public_id: qrPublicId };
   }
+```
 
+Las rutas quedan así. Nótese que llaman a `emitirEntrada(dbConexion, id)` del service, no a una función local:
+
+```js
   router.post(
     '/aprobar',
     envolverAsync(async (req, res) => {
@@ -1962,8 +1985,13 @@ Agregar, dentro de `crearRouterAdmin` y antes del `return router`, los helpers y
       try {
         aprobado = await emitirEntrada(id);
       } catch (err) {
-        if (err instanceof BaseUrlFaltanteError) {
-          console.error('No se puede aprobar sin BASE_URL configurada.');
+        // BaseUrlError es la CLASE BASE: cubre tanto BaseUrlFaltanteError
+        // (BASE_URL vacia) como BaseUrlInvalidaError (BASE_URL con una forma
+        // que no sirve, p.ej. sin esquema). Capturar solo una de las dos hijas
+        // manda la otra al catch generico y el organizador pierde el mensaje
+        // accionable justo cuando mas lo necesita.
+        if (err instanceof BaseUrlError) {
+          console.error('No se puede aprobar:', err.message);
           return volverAlPanel(req, res, 'falta_base_url');
         }
         console.error('Error al emitir la entrada del registro id=', id, err);
@@ -2078,7 +2106,7 @@ git commit -m "Agregar rutas de aprobar, rechazar y reenviar en /admin"
 - Modify: `src/routes/admin.js`
 
 **Interfaces:**
-- Consumes: `emitirEntrada` y `obtenerIdsPendientes` de las tareas anteriores.
+- Consumes: `emitirEntrada(dbConexion, id)` de `src/services/entradaService.js` (ver la corrección de arquitectura al inicio de la Task 6) y `obtenerIdsPendientes` de la Task 4.
 - Produces: `POST /admin/aprobar-pendientes`, que procesa como máximo `LIMITE_LOTE` registros.
 
 - [ ] **Step 1: Escribir el test que falla**
@@ -2314,10 +2342,14 @@ Y la ruta, después de `/reenviar`:
           const aprobado = await emitirEntrada(id);
           if (aprobado) aprobados.push(aprobado);
         } catch (err) {
-          if (err instanceof BaseUrlFaltanteError) {
-            // Sin BASE_URL ningun registro de la tanda puede emitirse: cortar
-            // en seco en vez de intentar los nueve restantes y fallar igual.
-            console.error('Lote abortado: BASE_URL no esta configurada.');
+          // BaseUrlError (la clase BASE) cubre BASE_URL vacia y BASE_URL con
+          // forma invalida. Capturar solo BaseUrlFaltanteError dejaria que una
+          // BASE_URL mal escrita NO corte el lote: intentaria los 10 registros
+          // sabiendo que todos van a fallar por la misma causa.
+          if (err instanceof BaseUrlError) {
+            // Ningun registro de la tanda puede emitirse: cortar en seco en vez
+            // de intentar los nueve restantes y fallar igual.
+            console.error('Lote abortado:', err.message);
             return volverAlPanel(req, res, 'falta_base_url');
           }
           // Un fallo puntual (Cloudinary intermitente) no aborta la tanda: ese
@@ -3634,7 +3666,7 @@ git commit -m "Documentar el flujo de entradas con QR"
 
 1. **La CSP de helmet bloquea el QR de Cloudinary.** `imgSrc: ["'self'", 'data:']` haría que la miniatura del QR en `/admin` no cargara, sin error de servidor ni test de backend en rojo — solo un recuadro vacío. Corregido en Task 9 Step 5, con verificación manual explícita en Task 10 Step 7.
 2. **`claveCoincide` estaba duplicada.** `/t` necesita la misma comparación que `/admin`. Extraída a `src/services/claveAdmin.js` en Task 6 Step 3 en vez de copiarla.
-3. **El lote necesitaba cortar en seco ante `BaseUrlFaltanteError`.** Sin eso intentaría los 10 registros sabiendo que todos van a fallar por la misma causa. Corregido en Task 7 Step 3.
+3. **El lote necesitaba cortar en seco ante un `BASE_URL` inservible.** Sin eso intentaría los 10 registros sabiendo que todos van a fallar por la misma causa. Corregido en Task 7 Step 3. **Corrección posterior:** el `catch` original capturaba `BaseUrlFaltanteError`, pero la implementación real tiene dos errores hermanos bajo una clase base `BaseUrlError`, y capturar solo una hija dejaba que una `BASE_URL` *mal escrita* no cortara el lote — exactamente la regresión que este punto decía haber arreglado. Las rutas capturan `BaseUrlError`.
 4. **`obtenerRegistroPorToken` necesita rechazar token vacío/`null`.** Hay registros pendientes con `ticket_token NULL`; una consulta con `''` o `null` podría devolver uno de ellos, lo que equivaldría a entregar una entrada ajena. Guard agregado en Task 4 y cubierto por dos tests.
 5. **La cookie no puede ser `Secure` incondicionalmente.** En desarrollo local sobre HTTP el navegador no la guardaría y el flujo de la puerta sería imposible de probar; en Vercel `req.secure` es `false` porque el TLS termina en el proxy. Resuelto mirando `x-forwarded-proto` en Task 8.
 6. **`leerCookie` podía confundir un nombre que es prefijo de otro.** `staffing` pasando por `staff` sería un bypass de autenticación. Comparación exacta, con test propio.
