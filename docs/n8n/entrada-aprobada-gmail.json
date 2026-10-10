@@ -1,0 +1,88 @@
+{
+  "name": "Integra CODE - correo QR con Gmail",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "REEMPLAZAR-POR-RUTA-PRIVADA",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9eb7f85a-5e50-4cd1-8d33-e84aab01958a",
+      "name": "Recibir evento de la web",
+      "webhookId": "9eb7f85a-5e50-4cd1-8d33-e84aab01958a"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const p = $input.first().json.body || {};\nif (p.evento !== 'entrada_aprobada') return [];\n\nconst correo = String(p.correo || '').trim();\nif (!/^[^\\s@,;<>]+@[^\\s@,;<>]+\\.[^\\s@,;<>]+$/.test(correo)) {\n  throw new Error('La entrada aprobada no tiene un correo válido (id=' + p.id + ')');\n}\n\nconst qr = String(p.qr_url || '');\nconst ticket = String(p.ticket_url || '');\nif (!/^https:\\/\\/res\\.cloudinary\\.com\\/[A-Za-z0-9/_.,%~-]+$/.test(qr)) {\n  throw new Error('qr_url no apunta a Cloudinary por HTTPS (id=' + p.id + ')');\n}\nif (!/^https:\\/\\/integra-code-umber\\.vercel\\.app\\/t\\/[A-Za-z0-9_-]{22}$/.test(ticket)) {\n  throw new Error('ticket_url no coincide con la web de entradas (id=' + p.id + ')');\n}\n\nconst esc = (value) => String(value).replace(/[&<>\"']/g, (char) =>\n  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' })[char]\n);\nconst nombre = esc(String(p.nombre_completo || 'invitado/a').trim());\nconst tipo = {\n  solo_entrada: 'Entrada',\n  entrada_bus: 'Entrada + bus',\n  solo_bus: 'Bus'\n}[p.tipo_entrada] || 'Entrada';\nconst qrUrl = esc(qr);\nconst ticketUrl = esc(ticket);\nconst html = [\n  '<div style=\"font-family:Arial,sans-serif;color:#1f2937;max-width:560px;margin:auto\">',\n  '<h1 style=\"font-size:26px\">Tu entrada está aprobada</h1>',\n  '<p>Hola, ' + nombre + '.</p>',\n  '<p>Tu pase de <strong>' + tipo + '</strong> para Integra CODE ya está listo. Presenta este QR al ingresar.</p>',\n  '<p style=\"text-align:center\"><img src=\"' + qrUrl + '\" alt=\"Código QR de entrada\" width=\"240\" height=\"240\" style=\"display:inline-block;width:240px;height:240px\"></p>',\n  '<p style=\"text-align:center\"><a href=\"' + ticketUrl + '\" style=\"display:inline-block;background:#111827;color:#ffffff;padding:12px 20px;text-decoration:none;border-radius:6px\">Ver mi entrada</a></p>',\n  '<p>Si el QR no aparece en tu correo, abre <a href=\"' + ticketUrl + '\">tu entrada</a> y muéstrala desde allí.</p>',\n  '<p style=\"font-size:13px;color:#6b7280\">Este enlace es personal. No lo compartas.</p>',\n  '</div>'\n].join('');\n\nreturn [{ json: { correo, asunto: 'Tu entrada para Integra CODE', html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "id": "63941575-23f1-473d-82f7-d61e496e91a0",
+      "name": "Preparar solo entradas aprobadas"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.correo }}",
+        "subject": "={{ $json.asunto }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        520,
+        0
+      ],
+      "id": "b7d23cb1-1816-41be-97d7-d7136a2d2321",
+      "name": "Enviar QR por Gmail"
+    }
+  ],
+  "connections": {
+    "Recibir evento de la web": {
+      "main": [
+        [
+          {
+            "node": "Preparar solo entradas aprobadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar solo entradas aprobadas": {
+      "main": [
+        [
+          {
+            "node": "Enviar QR por Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

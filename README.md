@@ -258,6 +258,10 @@ El webhook de n8n recibe dos eventos por la misma URL. `nuevo_registro` mantiene
 para `entrada_aprobada`, ramificar por `evento` y usar `qr_url` como imagen y `ticket_url` como
 enlace de la entrada:
 
+Hay un [workflow importable para Gmail](docs/n8n/entrada-aprobada-gmail.json) y sus
+[instrucciones de configuración](docs/n8n/README.md). El flujo ignora `nuevo_registro`, que
+la web ya gestiona.
+
 ```json
 {
   "evento": "entrada_aprobada",
