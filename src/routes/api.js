@@ -20,6 +20,7 @@
 //      el 500 resultante tendria que acordarse de borrar el asset ya subido;
 //      haciendolo antes, un fallo de DB aca no deja ningun asset huerfano en
 //      Cloudinary porque todavia no se subio nada.
+//      Si el tipo tiene una etiqueta en lugar de monto, responde 409.
 //   5. subir req.file.buffer a Cloudinary -> { secure_url, public_id }.
 //   6. insertarRegistroSiHayCupo con la URL de Cloudinary.
 //      AforoCompletoError -> borrar el asset recien subido a Cloudinary, 409.
@@ -42,7 +43,7 @@ const { AforoCompletoError } = require('../db/db');
 const cloudinaryService = require('../services/cloudinaryService');
 const { enviarWebhookBestEffort } = require('../services/webhookService');
 const { obtenerEstado } = require('../services/estadoService');
-const { obtenerPreciosEfectivos } = require('../services/preciosService');
+const { obtenerPreciosEfectivos, esEtiquetaPrecio } = require('../services/preciosService');
 const { envolverAsync } = require('../middleware/asyncHandler');
 const { generarClaveCliente, VALIDACIONES_RATE_LIMIT } = require('../middleware/rateLimitCliente');
 
@@ -76,11 +77,12 @@ const limiteRegistro = rateLimit({
 // de la DB (override hecho desde el panel de admin) y no solo del .env; la
 // regla de resolucion vive en src/services/preciosService.js.
 //
-// El comportamiento numerico es el mismo de antes a proposito: lo que no sea
-// un numero finito (incluido el string vacio de "Por confirmar", cuyo
-// Number('') es 0) resuelve a 0. Nunca se guarda NaN en precio_pagado.
+// El string vacio de "Por confirmar" conserva su valor 0. Una etiqueta
+// publicada no es un precio: devuelve null para rechazar el tipo antes de
+// subir comprobantes, en vez de registrar una compra gratuita accidental.
 async function calcularPrecioPagado(dbConexion, tipoEntrada) {
   const precios = await obtenerPreciosEfectivos(dbConexion);
+  if (esEtiquetaPrecio(precios[tipoEntrada])) return null;
   const precioNumerico = Number(precios[tipoEntrada]);
   return Number.isFinite(precioNumerico) ? precioNumerico : 0;
 }
@@ -156,6 +158,13 @@ function crearRouterApi(dbConexion) {
         // documentado en la cabecera de este archivo).
         const tipoEntrada = req.body.tipo_entrada;
         const precioPagado = await calcularPrecioPagado(dbConexion, tipoEntrada);
+        if (precioPagado === null) {
+          return res.status(409).json({
+            ok: false,
+            error: 'TIPO_ENTRADA_AGOTADO',
+            mensaje: 'Esta opción ya no está disponible. Actualiza la página y elige otra.',
+          });
+        }
 
         const { secure_url: comprobanteUrl, public_id: comprobantePublicId } =
           await cloudinaryService.subirComprobante(req.file.buffer);

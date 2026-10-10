@@ -1,0 +1,57 @@
+<%- include('partials/head', { titulo }) %>
+
+<main class="puerta puerta--<%= pantalla %>">
+  <% if (pantalla === 'marcado') { %>
+    <p class="puerta__estado puerta__estado--ok" role="status">Ingreso marcado</p>
+  <% } else if (pantalla === 'ya_usado') { %>
+    <p class="puerta__estado puerta__estado--usado" role="alert">Ya usado</p>
+    <p class="puerta__detalle">Ingresó <%= registro.ingreso_en %></p>
+  <% } else if (pantalla === 'deshecho') { %>
+    <p class="puerta__estado puerta__estado--pase" role="status">Ingreso deshecho</p>
+    <p class="puerta__detalle">La entrada puede volver a escanearse.</p>
+  <% } else if (pantalla === 'invalida') { %>
+    <p class="puerta__estado puerta__estado--invalido" role="alert">Entrada no válida</p>
+    <p class="puerta__detalle">Este código no corresponde a ninguna entrada emitida.</p>
+  <% } else if (pantalla === 'acceso_ok') { %>
+    <p class="puerta__estado puerta__estado--ok" role="status">Dispositivo autorizado</p>
+    <p class="puerta__detalle">Ya podés escanear entradas desde este teléfono. El acceso vence en 12 horas.</p>
+  <% } else { %>
+    <p class="puerta__estado puerta__estado--pase">Tu entrada</p>
+  <% } %>
+
+  <% if (registro) { %>
+    <dl class="puerta__datos">
+      <dt>Nombre</dt>
+      <dd><%= registro.nombre_completo %></dd>
+      <% if (esStaff) { %>
+        <dt>DNI</dt>
+        <dd><%= registro.dni %></dd>
+      <% } %>
+      <dt>Entrada</dt>
+      <dd><%= {
+        solo_entrada: 'Solo entrada',
+        entrada_bus: 'Entrada + Bus',
+        solo_bus: 'Solo bus',
+      }[registro.tipo_entrada] || registro.tipo_entrada %></dd>
+      <dt>Organización</dt>
+      <dd><%= registro.organizacion %></dd>
+      <% if (!esStaff && registro.ingreso_en) { %>
+        <dt>Ingreso</dt>
+        <dd>Ya registrado el <%= registro.ingreso_en %></dd>
+      <% } %>
+    </dl>
+  <% } %>
+
+  <% if (urlDeshacer) { %>
+    <form class="puerta__deshacer" method="post" action="<%= urlDeshacer %>">
+      <button type="submit">Deshacer ingreso</button>
+    </form>
+    <p class="puerta__ayuda">Usá Deshacer si escaneaste por error o si el nombre no coincide con la persona.</p>
+  <% } %>
+
+  <% if (pantalla === 'lectura') { %>
+    <p class="puerta__ayuda">Mostrá esta pantalla en la puerta del evento.</p>
+  <% } %>
+</main>
+
+<%- include('partials/footer') %>

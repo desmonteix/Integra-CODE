@@ -20,6 +20,11 @@ test('formatearPrecio retorna "S/ <monto>" si el valor es un numero valido', () 
   assert.equal(formatearPrecio('20.5'), 'S/ 20.5');
 });
 
+test('formatearPrecio muestra las etiquetas sin agregarles moneda', () => {
+  assert.equal(formatearPrecio('Sold Out'), 'Sold Out');
+  assert.equal(formatearPrecio('-'), '-');
+});
+
 // config.js lee process.env al cargarse (una sola vez), asi que para probar
 // distintos valores de MAX_AFORO hay que limpiar el cache de require y
 // volver a pedirlo despues de cambiar el env var. Node --test aisla cada

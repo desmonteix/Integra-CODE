@@ -100,6 +100,8 @@ svg {
   stroke-linejoin: round;
 }
 
+.iconos-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
 .icono--relleno {
   fill: currentColor;
   stroke: none;
@@ -801,6 +803,16 @@ select:focus-visible {
   transform: translateY(-1px);
 }
 
+.tarjeta-entrada:has(input:disabled) {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.tarjeta-entrada:has(input:disabled):hover {
+  border-color: var(--color-border);
+  transform: none;
+}
+
 .tarjeta-entrada:has(input:focus-visible) {
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
 }
@@ -887,7 +899,7 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
   text-align: center;
 }
 
-/* La tabla de registros tiene 6 columnas: en pantallas grandes (el
+/* La tabla de registros tiene 7 columnas: en pantallas grandes (el
    organizador la mira casi siempre desde una compu) aprovecha mas ancho
    que el resto de la app, en vez de quedar apretada en 480px. */
 .contenedor--admin {
@@ -898,6 +910,10 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
   .contenedor--admin {
     max-width: 880px;
   }
+}
+
+@media (min-width: 1200px) {
+  .contenedor--admin { max-width: 1200px; }
 }
 
 .resumen-aforo__linea {
@@ -921,26 +937,13 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
   margin-bottom: 1.5rem;
 }
 
-/* Prefijo "S/" pegado al input, para que el campo contenga solo el numero
-   (lo que se guarda tal cual) y la moneda quede como contexto visual. */
 .campo--precio__fila {
   display: flex;
   align-items: stretch;
-  gap: 0.5rem;
 }
 
-.campo--precio__moneda {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 2.75rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-alt);
-  border: 1.5px solid var(--color-border);
-  color: var(--color-muted-foreground);
-  font-weight: 700;
-  font-size: 0.95rem;
+.campo--precio__fila input {
+  width: 100%;
 }
 
 .campo--precio__ayuda {
@@ -1078,6 +1081,91 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
     line-height: 1.3;
     max-width: 460px;
   }
+}
+
+/* Estados legibles por texto y color, compartidos por panel y puerta. */
+.etiqueta {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.etiqueta--aprobado, .puerta__estado--ok {
+  color: var(--color-success-fg);
+  background: var(--color-success-bg);
+}
+.etiqueta--rechazado, .puerta__estado--invalido {
+  color: var(--color-error-fg);
+  background: var(--color-error-bg);
+}
+.etiqueta--pendiente, .puerta__estado--usado, .puerta__estado--pase {
+  color: var(--color-foreground);
+  background: var(--color-surface-alt);
+}
+.acciones-entrada {
+  margin-top: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+.acciones-entrada button[type="submit"] {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+.acciones-entrada button[type="submit"].boton-rechazar {
+  background: var(--color-error-bg);
+  color: var(--color-error-fg);
+  border: 1px solid currentColor;
+  box-shadow: none;
+}
+.celda-entrada { min-width: 13rem; }
+.celda-entrada__envio, .celda-entrada__ingreso {
+  margin: 0.35rem 0;
+  font-size: 0.85rem;
+}
+.resumen-entradas__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+.resumen-entradas__ayuda { font-size: 0.9rem; }
+.puerta {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+.puerta__estado {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid currentColor;
+}
+.puerta__detalle { font-size: 1.1rem; }
+.puerta__datos {
+  text-align: left;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 1rem;
+  margin: 1.5rem 0;
+}
+.puerta__datos dt { font-weight: 600; }
+.puerta__datos dd { margin: 0; overflow-wrap: anywhere; }
+.puerta__deshacer button { min-height: 44px; padding: 0.6rem 1.2rem; }
+.puerta__ayuda { font-size: 0.9rem; margin-top: 1rem; }
+@media (max-width: 24rem) {
+  .puerta__estado { font-size: 1.5rem; }
+  .puerta__datos { grid-template-columns: 1fr; gap: 0.1rem; }
+  .puerta__datos dd { margin-bottom: 0.65rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

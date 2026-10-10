@@ -1,8 +1,9 @@
 // src/routes/admin.js
 // GET  /admin?key=...         — panel del organizador.
 // POST /admin/precios?key=... — guarda los 3 precios en la DB.
+// POST /admin/aprobar|rechazar|reenviar?key=... — opera una entrada por id.
 //
-// Ambas protegidas por un secreto compartido simple (ADMIN_KEY), no es un
+// Todas protegidas por un secreto compartido simple (ADMIN_KEY), no es un
 // sistema de cuentas. Si ADMIN_KEY no esta configurado, o la key no coincide,
 // responden 404 (no revela que la ruta existe). POST /admin/precios reusa
 // EXACTAMENTE el mismo claveCoincide (comparacion en tiempo constante) y el
@@ -25,7 +26,6 @@
 //   - El redirect post-guardado apunta a nuestro propio /admin, no a un host
 //     externo.
 
-const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const config = require('../config');
@@ -37,6 +37,14 @@ const {
 const { resolverPrecios, validarPrecios } = require('../services/preciosService');
 const { envolverAsync } = require('../middleware/asyncHandler');
 const { generarClaveCliente, VALIDACIONES_RATE_LIMIT } = require('../middleware/rateLimitCliente');
+const { claveCoincide } = require('../services/claveAdmin');
+const { emitirEntrada } = require('../services/entradaService');
+const { BaseUrlError, obtenerBaseUrlValidada } = require('../services/ticketService');
+const { enviarCorreoQrBestEffort } = require('../services/webhookService');
+const { ESTADOS_APROBACION } = require('../db/db');
+
+// Tandas acotadas para que cada request serverless pueda terminar y reanudarse.
+const LIMITE_LOTE = 10;
 
 // Confirmado en auditoria: 30 intentos consecutivos de ADMIN_KEY incorrecta
 // se procesaron en segundos sin ningun throttling ni bloqueo — la
@@ -67,18 +75,6 @@ const limiteAdmin = rateLimit({
   },
 });
 
-// Comparacion en tiempo constante: evita que una diferencia de timing entre
-// "clave incorrecta" y "clave correcta" filtre informacion sobre cuantos
-// caracteres coinciden. Impacto real bajo dado el uso esporadico de esta
-// ruta, pero es una defensa gratuita y estandar para comparar secretos.
-function claveCoincide(claveRecibida, claveConfigurada) {
-  if (!claveConfigurada || typeof claveRecibida !== 'string') return false;
-  const bufRecibida = Buffer.from(claveRecibida);
-  const bufConfigurada = Buffer.from(claveConfigurada);
-  if (bufRecibida.length !== bufConfigurada.length) return false;
-  return crypto.timingSafeEqual(bufRecibida, bufConfigurada);
-}
-
 function crearRouterAdmin(dbConexion) {
   const router = express.Router();
 
@@ -86,7 +82,7 @@ function crearRouterAdmin(dbConexion) {
   // Los tres pasos estan antes de cualquier handler, y el orden entre ellos
   // es deliberado (ver abajo por que el parser va ULTIMO).
 
-  // 1. Rate limit. Cubre por igual GET / y POST /precios (router.use se
+  // 1. Rate limit. Cubre GET / y todas las escrituras del panel (router.use se
   // aplica a todos los metodos y a todas las sub-rutas del router). Una
   // andanada de POST no puede esquivarlo ni "gastarlo" en otra ruta: el
   // contador es por cliente para todo el router, no por ruta.
@@ -192,6 +188,20 @@ function crearRouterAdmin(dbConexion) {
       erroresPrecios: opciones.erroresPrecios || {},
       detallesPrecios: opciones.detallesPrecios || [],
       guardado: Boolean(opciones.guardado),
+      conteoEstados: {
+        pendiente: registros.filter(r => r.estado_aprobacion === ESTADOS_APROBACION.PENDIENTE).length,
+        aprobado: registros.filter(r => r.estado_aprobacion === ESTADOS_APROBACION.APROBADO).length,
+        rechazado: registros.filter(r => r.estado_aprobacion === ESTADOS_APROBACION.RECHAZADO).length,
+        ingresados: registros.filter(r => r.ingreso_en).length,
+      },
+      claveEncodeada: encodeURIComponent(req.query.key),
+      aviso: typeof req.query.aviso === 'string' ? req.query.aviso : '',
+      avisoLote: {
+        ok: typeof req.query.lote_ok === 'string' && /^\d+$/.test(req.query.lote_ok) ? req.query.lote_ok : '0',
+        error: typeof req.query.lote_error === 'string' && /^\d+$/.test(req.query.lote_error) ? req.query.lote_error : '0',
+        restantes: typeof req.query.lote_restantes === 'string' && /^\d+\+?$/.test(req.query.lote_restantes) ? req.query.lote_restantes : '0',
+      },
+      urlAccesoStaff: `/t/acceso?key=${encodeURIComponent(req.query.key)}`,
     });
   }
 
@@ -215,7 +225,7 @@ function crearRouterAdmin(dbConexion) {
     })
   );
 
-  // Unica ruta de ESCRITURA del panel. Guarda los 3 precios en la tabla
+  // Guarda los 3 precios en la tabla
   // `configuracion` (ver guardarPrecios en src/db/db.js).
   //
   // NO toca `precio_pagado` de ningun registro existente: esa columna
@@ -271,6 +281,94 @@ function crearRouterAdmin(dbConexion) {
       return res.redirect(303, `/admin?key=${encodeURIComponent(req.query.key)}&guardado=1`);
     })
   );
+
+  // Avisos conocidos, sin texto del request; 303 evita repetir la escritura.
+  function volverAlPanel(req, res, aviso) {
+    const params = new URLSearchParams({ key: req.query.key });
+    if (aviso) params.set('aviso', aviso);
+    return res.redirect(303, `/admin?${params.toString()}`);
+  }
+
+  function leerIdDelCuerpo(cuerpo) {
+    const valor = cuerpo && cuerpo.id;
+    if (typeof valor !== 'string' || !/^[1-9]\d*$/.test(valor)) return null;
+    const id = Number(valor);
+    return Number.isSafeInteger(id) ? id : null;
+  }
+
+  router.post('/aprobar', envolverAsync(async (req, res) => {
+    const id = leerIdDelCuerpo(req.body);
+    if (id === null) return volverAlPanel(req, res, 'id_invalido');
+    let aprobado;
+    try {
+      aprobado = await emitirEntrada(dbConexion, id);
+    } catch (err) {
+      if (err instanceof BaseUrlError) {
+        console.error('No se puede aprobar:', err.message);
+        return volverAlPanel(req, res, 'falta_base_url');
+      }
+      console.error('Error al emitir la entrada del registro id=', id, err);
+      return volverAlPanel(req, res, 'error_aprobar');
+    }
+    if (!aprobado) return volverAlPanel(req, res, 'no_pendiente');
+    // En Vercel, una tarea sin await puede detenerse al cerrar la respuesta.
+    // El envio es best effort: si n8n falla, la entrada aprobada se conserva.
+    await enviarCorreoQrBestEffort(aprobado, dbConexion);
+    return volverAlPanel(req, res, 'aprobado');
+  }));
+
+  router.post('/rechazar', envolverAsync(async (req, res) => {
+    const id = leerIdDelCuerpo(req.body);
+    if (id === null) return volverAlPanel(req, res, 'id_invalido');
+    const rechazo = await dbConexion.rechazarRegistroSiPendiente(id);
+    return volverAlPanel(req, res, rechazo ? 'rechazado' : 'no_pendiente');
+  }));
+
+  router.post('/reenviar', envolverAsync(async (req, res) => {
+    const id = leerIdDelCuerpo(req.body);
+    if (id === null) return volverAlPanel(req, res, 'id_invalido');
+    const registro = await dbConexion.obtenerRegistroPorId(id);
+    if (!registro || registro.estado_aprobacion !== ESTADOS_APROBACION.APROBADO) {
+      return volverAlPanel(req, res, 'no_aprobado');
+    }
+    await enviarCorreoQrBestEffort(registro, dbConexion);
+    return volverAlPanel(req, res, 'reenviado');
+  }));
+
+  router.post('/aprobar-pendientes', envolverAsync(async (req, res) => {
+    let baseUrlValidada;
+    try {
+      // Validar una sola vez, antes de consultar o modificar la tanda.
+      baseUrlValidada = obtenerBaseUrlValidada();
+    } catch (err) {
+      if (!(err instanceof BaseUrlError)) throw err;
+      console.error('Lote abortado:', err.message);
+      return volverAlPanel(req, res, 'falta_base_url');
+    }
+    const ids = await dbConexion.obtenerIdsPendientes(LIMITE_LOTE);
+    const aprobados = [];
+    let fallidos = 0;
+    // En serie para limitar la presion sobre Cloudinary y conservar el progreso.
+    for (const id of ids) {
+      try {
+        const aprobado = await emitirEntrada(dbConexion, id, { baseUrlValidada });
+        if (aprobado) aprobados.push(aprobado);
+      } catch (err) {
+        fallidos++;
+        console.error('Fallo al emitir la entrada del registro id=', id, err);
+      }
+    }
+    const restantes = (await dbConexion.obtenerIdsPendientes(LIMITE_LOTE + 1)).length;
+    const params = new URLSearchParams({
+      key: req.query.key, aviso: 'lote', lote_ok: String(aprobados.length),
+      lote_error: String(fallidos),
+      lote_restantes: restantes > LIMITE_LOTE ? `${LIMITE_LOTE}+` : String(restantes),
+    });
+    // Los avisos se esperan en paralelo antes del redirect para que Vercel no
+    // congele los envios pendientes al terminar la funcion.
+    await Promise.all(aprobados.map((aprobado) => enviarCorreoQrBestEffort(aprobado, dbConexion)));
+    return res.redirect(303, `/admin?${params.toString()}`);
+  }));
 
   return router;
 }

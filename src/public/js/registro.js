@@ -124,6 +124,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (status === 409) {
+          if (cuerpo && cuerpo.error === 'TIPO_ENTRADA_AGOTADO') {
+            mostrarErroresDeValidacion(['tipo_entrada: esta opción ya no está disponible. Actualiza la página y elige otra.']);
+            reactivarBoton();
+            return;
+          }
           mostrarAgotado();
           return;
         }

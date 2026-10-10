@@ -124,6 +124,73 @@ test('POST /admin/precios con un precio vacio lo publica como "Por confirmar"', 
   });
 });
 
+test('POST /admin/precios guarda Sold Out y lo muestra sin S/ en admin y la web', async () => {
+  await conPanel(async ({ conexion, baseUrl }) => {
+    const respuesta = await postPrecios(
+      baseUrl, CLAVE, cuerpoDePrecios({ entradaBus: '-', soloBus: 'Sold Out' })
+    );
+    assert.equal(respuesta.status, 303);
+    assert.equal((await conexion.obtenerConfiguracion()).precio_solo_bus, 'Sold Out');
+    const estado = await (await fetch(`${baseUrl}/api/estado`)).json();
+    assert.equal(estado.precios.solo_bus, 'Sold Out');
+    assert.equal(estado.precios.entrada_bus, '-');
+    assert.equal(estado.tipos_disponibles.solo_bus, false);
+    assert.equal(estado.tipos_disponibles.entrada_bus, false);
+    assert.equal(estado.tipos_disponibles.solo_entrada, true);
+    const admin = await (await fetch(`${baseUrl}/admin?key=${encodeURIComponent(CLAVE)}`)).text();
+    const publico = await (await fetch(`${baseUrl}/`)).text();
+    assert.match(admin, /name="precio_solo_bus"\s+value="Sold Out"/);
+    assert.match(admin, /El p.blico ve: <strong>Sold Out<\/strong>/);
+    assert.match(publico, />Sold Out<\/span>/);
+    assert.doesNotMatch(publico, /S\/ Sold Out/);
+    assert.match(publico, /value="solo_bus"[^>]*disabled/);
+    assert.match(publico, /value="entrada_bus"[^>]*disabled/);
+  });
+});
+
+test('POST /api/registro rechaza un tipo con etiqueta antes de subir comprobante', async () => {
+  await conPanel(async ({ conexion, baseUrl }) => {
+    await postPrecios(baseUrl, CLAVE, cuerpoDePrecios({ soloBus: 'Sold Out' }));
+    const originalSubir = cloudinaryService.subirComprobante;
+    let subidas = 0;
+    cloudinaryService.subirComprobante = async () => {
+      subidas++;
+      throw new Error('No debe subir comprobante para una opción agotada');
+    };
+    try {
+      const fd = new FormData();
+      fd.set('nombre_completo', 'Comprador de prueba');
+      fd.set('dni', '70000099');
+      fd.set('celular', '999999999');
+      fd.set('correo', 'comprador@example.com');
+      fd.set('organizacion', 'CODE');
+      fd.set('tipo_entrada', 'solo_bus');
+      fd.set('acepta_terminos', 'on');
+      fd.set('comprobante', new Blob(['imagen'], { type: 'image/jpeg' }), 'pago.jpg');
+
+      const respuesta = await fetch(`${baseUrl}/api/registro`, { method: 'POST', body: fd });
+      assert.equal(respuesta.status, 409);
+      const cuerpo = await respuesta.json();
+      assert.equal(cuerpo.error, 'TIPO_ENTRADA_AGOTADO');
+      assert.equal(subidas, 0);
+      assert.equal(await conexion.contarRegistros(), 0);
+    } finally {
+      cloudinaryService.subirComprobante = originalSubir;
+    }
+  });
+});
+
+test('GET / avisa cuando las tres opciones tienen texto y oculta el formulario', async () => {
+  await conPanel(async ({ baseUrl }) => {
+    await postPrecios(baseUrl, CLAVE, cuerpoDePrecios({
+      soloEntrada: 'Sold Out', entradaBus: '-', soloBus: 'No disponible',
+    }));
+    const html = await (await fetch(`${baseUrl}/`)).text();
+    assert.match(html, /No hay opciones disponibles/);
+    assert.doesNotMatch(html, /id="form-registro"/);
+  });
+});
+
 test('GET /admin tras guardar muestra los valores nuevos y la confirmacion de exito', async () => {
   await conPanel(async ({ baseUrl }) => {
     await postPrecios(baseUrl, CLAVE, cuerpoDePrecios({ soloBus: '22' }));
@@ -178,7 +245,7 @@ test('POST /admin/precios con payloads invalidos responde 400, explica el error 
   await conPanel(async ({ conexion, baseUrl }) => {
     const casos = [
       { nombre: 'negativo', cuerpo: cuerpoDePrecios({ soloBus: '-5' }) },
-      { nombre: 'no numerico', cuerpo: cuerpoDePrecios({ soloBus: 'gratis' }) },
+      { nombre: 'etiqueta invalida', cuerpo: cuerpoDePrecios({ soloBus: '@@@' }) },
       { nombre: 'demasiados decimales', cuerpo: cuerpoDePrecios({ soloBus: '18.123' }) },
     ];
 

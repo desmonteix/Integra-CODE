@@ -2,7 +2,30 @@
   <%- include('partials/iconos') %>
   <main class="contenedor contenedor--admin">
     <h1>Panel del organizador</h1>
-    <p class="subtitulo">Los registros son de solo lectura — solo los precios se pueden editar.</p>
+    <p class="subtitulo">Revisa los comprobantes, aprueba las entradas y controla el ingreso.</p>
+    <%
+      const mensajesAviso = {
+        aprobado: 'Entrada aprobada. Se intentará enviar el correo con el QR a n8n.',
+        rechazado: 'Registro rechazado. No se emitió ninguna entrada.',
+        reenviado: 'Reenvío solicitado a n8n con el mismo QR.',
+        no_pendiente: 'Ese registro ya no estaba pendiente. No se cambió nada.',
+        no_aprobado: 'Ese registro todavía no está aprobado: no hay QR para reenviar.',
+        id_invalido: 'No se pudo identificar el registro. Vuelve a intentar desde la tabla.',
+        error_aprobar: 'No se pudo emitir la entrada. El registro sigue pendiente: vuelve a intentar.',
+        falta_base_url: 'BASE_URL falta o no es válida. Corrige la configuración antes de aprobar entradas.',
+      };
+      const mensajeAviso = Object.prototype.hasOwnProperty.call(mensajesAviso, aviso) ? mensajesAviso[aviso] : '';
+    %>
+    <% if (mensajeAviso) { %>
+      <p class="alerta <%= ['id_invalido', 'error_aprobar', 'falta_base_url'].includes(aviso) ? 'alerta-error' : 'alerta-exito' %>" role="status"><%= mensajeAviso %></p>
+    <% } %>
+    <% if (aviso === 'lote') { %>
+      <p class="alerta alerta-exito" role="status">
+        Lote procesado: <%= avisoLote.ok %> aprobadas<% if (avisoLote.error !== '0') { %>,
+        <%= avisoLote.error %> con error (siguen pendientes)<% } %>.
+        Quedan <%= avisoLote.restantes %> pendientes.
+      </p>
+    <% } %>
 
     <section>
       <h2>
@@ -25,6 +48,25 @@
           </li>
         <% }); %>
       </ul>
+    </section>
+
+    <section class="resumen-entradas">
+      <h2>Entradas</h2>
+      <ul class="resumen-entradas__lista">
+        <li><strong><%= conteoEstados.pendiente %></strong> pendientes de aprobar</li>
+        <li><strong><%= conteoEstados.aprobado %></strong> aprobadas</li>
+        <li><strong><%= conteoEstados.rechazado %></strong> rechazadas</li>
+        <li><strong><%= conteoEstados.ingresados %></strong> ya ingresaron al evento</li>
+      </ul>
+      <% if (conteoEstados.pendiente > 0) { %>
+        <form class="acciones-entrada" method="post" action="/admin/aprobar-pendientes?key=<%= claveEncodeada %>">
+          <button type="submit">Aprobar las próximas 10 pendientes</button>
+        </form>
+        <p class="resumen-entradas__ayuda">Se procesan de a 10 por vez. Vuelve a tocar el botón hasta que no queden pendientes.</p>
+      <% } %>
+      <h3>Teléfono de la puerta</h3>
+      <p class="resumen-entradas__ayuda">Abre este enlace en el teléfono que va a escanear. Cada QR que escanee marcará el ingreso directamente. El permiso vence en 12 horas.</p>
+      <p><a href="<%= urlAccesoStaff %>">Autorizar este dispositivo para escanear</a></p>
     </section>
 
     <section>
@@ -60,7 +102,8 @@
 
       <form class="form-precios" method="post" action="<%= accionPrecios %>" aria-describedby="nota-precios">
         <p class="form-precios__nota" id="nota-precios">
-          Dejá un campo vacío para mostrarlo como «Por confirmar». Cambiar un precio
+          Escribí un monto o un texto como «Sold Out». El texto deja esa opción fuera del
+          registro. Dejá un campo vacío para mostrarlo como «Por confirmar». Cambiar un precio
           <strong>no modifica</strong> lo que ya pagaron los registros existentes.
         </p>
 
@@ -88,16 +131,14 @@
           <div class="campo campo--precio">
             <label for="<%= idInput %>"><%= campo.nombre %></label>
             <div class="campo--precio__fila">
-              <span class="campo--precio__moneda" aria-hidden="true">S/</span>
               <input
                 type="text"
                 id="<%= idInput %>"
                 name="<%= idInput %>"
                 value="<%= valoresPrecios[campo.tipo] %>"
-                inputmode="decimal"
                 autocomplete="off"
-                maxlength="12"
-                placeholder="Por confirmar"
+                maxlength="32"
+                placeholder="Monto o texto"
                 aria-describedby="<%= describedBy %>"
                 <% if (tieneError) { %>aria-invalid="true"<% } %>
               />
@@ -130,12 +171,13 @@
               <th>Tipo de entrada</th>
               <th>Fecha</th>
               <th>Comprobante</th>
+              <th>Entrada</th>
             </tr>
           </thead>
           <tbody>
             <% if (registros.length === 0) { %>
               <tr>
-                <td colspan="6" class="tabla-admin__vacio">Todavía no hay registros.</td>
+                <td colspan="7" class="tabla-admin__vacio">Todavía no hay registros.</td>
               </tr>
             <% } %>
             <% registros.forEach(function (registro) { %>
@@ -154,6 +196,34 @@
                     <a href="<%= registro.comprobante_url %>" target="_blank" rel="noopener noreferrer">Ver comprobante</a>
                   <% } else { %>
                     —
+                  <% } %>
+                </td>
+                <td class="celda-entrada">
+                  <% if (registro.estado_aprobacion === 'pendiente') { %>
+                    <span class="etiqueta etiqueta--pendiente">Pendiente</span>
+                    <form class="acciones-entrada" method="post" action="/admin/aprobar?key=<%= claveEncodeada %>">
+                      <input type="hidden" name="id" value="<%= registro.id %>">
+                      <button type="submit">Aprobar y enviar QR</button>
+                    </form>
+                    <form class="acciones-entrada" method="post" action="/admin/rechazar?key=<%= claveEncodeada %>">
+                      <input type="hidden" name="id" value="<%= registro.id %>">
+                      <button class="boton-rechazar" type="submit">Rechazar</button>
+                    </form>
+                  <% } else if (registro.estado_aprobacion === 'rechazado') { %>
+                    <span class="etiqueta etiqueta--rechazado">Rechazado</span>
+                  <% } else if (registro.estado_aprobacion === 'aprobado') { %>
+                    <span class="etiqueta etiqueta--aprobado">Aprobada</span>
+                    <p class="celda-entrada__envio"><%= Number(registro.correo_qr_enviado) === 1 ? 'Entregado a n8n' : 'Sin confirmar por n8n' %></p>
+                    <p class="celda-entrada__ingreso"><%= registro.ingreso_en ? 'Ingresó ' + registro.ingreso_en : 'No ingresó todavía' %></p>
+                    <% if (registro.qr_url) { %>
+                      <a href="<%= registro.qr_url %>" target="_blank" rel="noopener noreferrer">Ver QR</a>
+                    <% } %>
+                    <form class="acciones-entrada" method="post" action="/admin/reenviar?key=<%= claveEncodeada %>">
+                      <input type="hidden" name="id" value="<%= registro.id %>">
+                      <button type="submit">Reenviar correo</button>
+                    </form>
+                  <% } else { %>
+                    <span class="etiqueta">Estado desconocido</span>
                   <% } %>
                 </td>
               </tr>

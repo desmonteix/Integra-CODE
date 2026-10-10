@@ -11,7 +11,7 @@
 // src/server.js), sin necesitar credenciales reales.
 
 const config = require('../config');
-const { obtenerPreciosFormateados } = require('./preciosService');
+const { resolverPrecios, TIPOS_CON_PRECIO, esEtiquetaPrecio } = require('./preciosService');
 
 // Los precios ya NO se leen de config.precios aca: desde que el panel de
 // admin puede editarlos (POST /admin/precios), la unica regla de resolucion
@@ -21,13 +21,19 @@ const { obtenerPreciosFormateados } = require('./preciosService');
 async function obtenerEstado(dbConexion) {
   const totalRegistrados = await dbConexion.contarRegistros();
   const disponibles = Math.max(0, config.maxAforo - totalRegistrados);
+  const precios = await resolverPrecios(dbConexion);
+  const tiposDisponibles = {};
+  for (const tipo of TIPOS_CON_PRECIO) {
+    tiposDisponibles[tipo] = !esEtiquetaPrecio(precios.efectivos[tipo]);
+  }
   return {
     ok: true,
     total_registrados: totalRegistrados,
     aforo_maximo: config.maxAforo,
     disponibles,
     agotado: totalRegistrados >= config.maxAforo,
-    precios: await obtenerPreciosFormateados(dbConexion),
+    precios: precios.formateados,
+    tipos_disponibles: tiposDisponibles,
   };
 }
 

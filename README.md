@@ -58,6 +58,7 @@ Copiar `.env.example` a `.env` y completar según corresponda:
 | `WEBHOOK_TIMEOUT_MS` | `3000` | Timeout por intento de envío al webhook |
 | `WEBHOOK_MAX_RETRIES` | `1` | Reintentos adicionales tras el primer intento fallido |
 | `ADMIN_KEY` | `` (vacío → `/admin` responde 404) | Secreto para acceder al panel del organizador (incluido `POST /admin/precios`) |
+| `BASE_URL` | **obligatoria para emitir entradas** | Origen público de la app (`https://host`, sin path, query ni fragmento); se codifica dentro de cada QR. Una URL ausente o inválida impide aprobar y muestra un aviso en `/admin` |
 | `TURSO_DATABASE_URL` | **obligatoria** | URL `libsql://...` de tu base Turso (`turso db show <nombre> --url`) |
 | `TURSO_AUTH_TOKEN` | **obligatoria** | Token de acceso a esa base (`turso db tokens create <nombre>`) |
 | `CLOUDINARY_CLOUD_NAME` | **obligatoria** | Del dashboard de Cloudinary (Settings → Access Keys) |
@@ -83,6 +84,10 @@ directamente (no requiere ningún paso de CLI).
   que el cliente confirme los montos finales. Mientras estén vacíos (o en `0`), la interfaz
   muestra "Por confirmar" en vez de un monto — esto es un estado totalmente soportado, no
   bloquea el funcionamiento de la app.
+- El panel de `/admin` acepta un monto o una etiqueta breve como "Sold Out" o "-" en cada
+  campo. La etiqueta se muestra sin `S/` y deshabilita ese tipo de entrada en el formulario;
+  el servidor también rechaza registros enviados directamente para ese tipo. Los importes
+  guardados en registros anteriores no cambian.
 - Las tres variables `PRECIO_*` son solo el valor **inicial**. Desde que el panel del
   organizador puede editar los precios (`POST /admin/precios`), un precio guardado en la base
   de datos le gana a la variable de entorno; la variable se usa solo mientras no exista un
@@ -193,14 +198,14 @@ Ruta opcional en `GET /admin?key=<ADMIN_KEY>`. Si `ADMIN_KEY` no está configura
 la `key` no coincide, la ruta responde `404` (no revela que existe). Muestra una tabla con
 nombre completo, organización, tipo de entrada, fecha y comprobante, más el resumen de cupos.
 
-Los **registros son de solo lectura** (no hay editar/borrar/exportar): es intencionalmente
-mínima, no es un panel admin elaborado ni un sistema de cuentas. La única acción de escritura es
-el formulario de **precios**:
+Los registros muestran su estado de aprobación, comprobante y QR. Desde el panel se puede
+**aprobar**, **rechazar**, **reenviar el QR** y aprobar pendientes en lotes de hasta 10.
+El formulario de **precios** también permite escribir:
 
 `POST /admin/precios?key=<ADMIN_KEY>` guarda los tres precios en la tabla `configuracion` de la
 base. Reusa exactamente la misma comparación en tiempo constante y el mismo contrato de `404`
 que el `GET`, y está detrás del mismo rate limit (20 requests por IP cada 15 minutos, aplicado a
-todo el router). Existe porque en Vercel las variables de entorno son inmutables sin un
+todo el router, incluidas las acciones de aprobación). Existe porque en Vercel las variables de entorno son inmutables sin un
 redeploy.
 
 Garantía importante: cambiar un precio **nunca** reescribe el `precio_pagado` de un registro ya
@@ -217,8 +222,67 @@ probabilidad a tener en cuenta:
 - Si el link se comparte por una app de mensajería que genera vista previa (WhatsApp, Telegram,
   Slack), esa app puede llegar a solicitar la URL y ver la `key`.
 
-Mitigación recomendada sin cambiar el contrato de la ruta: no compartir el link de `/admin` por
-chats que generen previsualizaciones, y rotar `ADMIN_KEY` en `.env` una vez terminado el evento.
+No compartir el link de `/admin` por chats que generen previsualizaciones y limitar quién puede
+abrir el historial del navegador del organizador.
+
+## Entradas con QR
+
+Cada registro nace `pendiente` y no tiene entrada. El organizador verifica el comprobante de
+Yape en `/admin` y aprueba manualmente. Entonces la app genera un token aleatorio de 128 bits,
+crea un PNG QR en memoria, lo sube a Cloudinary y entrega a n8n el evento
+`entrada_aprobada` para que su workflow mande el correo. La aprobación nunca comprueba el pago
+por sí sola.
+
+Antes del evento, el staff abre el enlace **Autorizar este dispositivo para escanear** del
+panel (`/t/acceso?key=<ADMIN_KEY>`). La cookie `httpOnly` vence en 12 horas. Al escanear un QR
+desde ese teléfono, `GET /t/<token>` marca el ingreso de inmediato. Sin la cookie, la misma
+URL muestra el pase sin marcarlo; así la persona puede abrir su correo antes de llegar.
+
+| Pantalla | Significado |
+|---|---|
+| **Ingreso marcado** | Primer escaneo de staff; la entrada se consumió |
+| **Ya usado** | Otro escaneo encontró un ingreso anterior |
+| **Entrada no válida** | El token no corresponde a una entrada |
+| **Tu entrada** | Vista de lectura, sin cookie de staff ni DNI |
+
+**Deshacer ingreso** permite corregir un escaneo accidental o un nombre que no coincide con
+la persona. Tras deshacer, el teléfono muestra una vista de lectura; un nuevo escaneo puede
+marcar la entrada otra vez.
+
+El botón de lote procesa **hasta 10 pendientes por vez** y muestra cuántas quedan. Cada
+aprobación crea y sube una imagen, así que una tanda acotada evita exceder el tiempo de la
+función de Vercel. Un registro rechazado sigue ocupando aforo; para recuperar ese cupo hay
+que borrar su fila manualmente en Turso.
+
+**"Entregado a n8n" significa que n8n aceptó el webhook, no que el correo llegó.** Si una
+persona reclama su QR, Reenviar usa el mismo token y la misma imagen. Regenerar el token
+invalidaría la entrada que quizá ya recibió. No hay recuperación de QR por autoservicio.
+
+El webhook de n8n recibe dos eventos por la misma URL. `nuevo_registro` mantiene su contrato;
+para `entrada_aprobada`, ramificar por `evento` y usar `qr_url` como imagen y `ticket_url` como
+enlace de la entrada:
+
+Hay un [workflow importable para Gmail](docs/n8n/entrada-aprobada-gmail.json) y sus
+[instrucciones de configuración](docs/n8n/README.md). El flujo ignora `nuevo_registro`, que
+la web ya gestiona.
+
+```json
+{
+  "evento": "entrada_aprobada",
+  "id": 42,
+  "nombre_completo": "Juan Pérez",
+  "correo": "juan@example.com",
+  "organizacion": "CODE",
+  "tipo_entrada": "entrada_bus",
+  "precio_pagado": 45,
+  "qr_url": "https://res.cloudinary.com/.../qr/a1b2c3.png",
+  "ticket_url": "https://integra-code-umber.vercel.app/t/<token>",
+  "fecha_aprobacion": "2026-10-09T18:30:00.000Z"
+}
+```
+
+El payload omite DNI y celular. El historial de n8n y el dashboard de Cloudinary pueden
+exponer el token de una entrada a quien tenga acceso a esas cuentas.
 
 ## Comprobantes de pago
 
@@ -258,7 +322,7 @@ costo, cero servidor que mantener.
 
 El punto de entrada serverless ya está armado: `api/index.js` exporta la app de Express
 directamente (Vercel lo detecta como función Node.js), y `vercel.json` reenvía **todas** las
-rutas (`/`, `/admin`, `/api/*`, `/css/*`, `/js/*`) hacia esa función, y le indica a Vercel que
+rutas (`/`, `/admin`, `/api/*`, `/t/*`, `/css/*`, `/js/*`) hacia esa función, y le indica a Vercel que
 empaquete `src/**` junto con ella — sin eso, las vistas EJS y los archivos estáticos (leídos de
 disco en runtime, no via `require`) no estarían presentes en el deploy.
 
@@ -277,12 +341,14 @@ cambiar a `rewrites`/`functions` sin volver a probar un deploy real primero.
 Pasos para desplegar:
 
 1. Correr las migraciones pendientes contra la base de Turso (ver
-   `src/db/migrations/README.md`). **Antes** del deploy: son compatibles hacia atrás, así que
+   `src/db/migrations/README.md`), incluida **`002-qr-entradas.sql`**.
+   **Antes** del deploy: son compatibles hacia atrás, así que
    el código que ya está vivo sigue funcionando contra el esquema nuevo.
 2. En el proyecto de Vercel, agregar las variables de entorno (`TURSO_DATABASE_URL`,
    `TURSO_AUTH_TOKEN`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
    `MAX_AFORO`, `PRECIO_SOLO_ENTRADA`, `PRECIO_ENTRADA_BUS`, `PRECIO_SOLO_BUS`,
-   `N8N_WEBHOOK_URL` si aplica, `ADMIN_KEY`) en Project Settings → Environment Variables.
+   `N8N_WEBHOOK_URL` si aplica, `ADMIN_KEY`, `BASE_URL`) en Project Settings → Environment Variables.
+   Para este despliegue, `BASE_URL=https://integra-code-umber.vercel.app`.
    Las `PRECIO_*` pueden quedar vacías (o no definirse): rinden "Por confirmar" hasta que se
    carguen desde el panel de `/admin`.
 3. Redesplegar (o hacer push a `main`, que ya dispara el deploy automático). Confirmar `GET /`
@@ -313,9 +379,9 @@ integracion-tickets/
 │   ├── db/                    # schema.sql + conexion libSQL/Turso + aforo atomico
 │   │   └── migrations/        # migraciones SQL manuales (ver su README)
 │   ├── middleware/             # upload (multer, memoryStorage) + validarRegistro
-│   ├── routes/                 # api.js (registro/estado), admin.js (panel + precios)
-│   ├── services/                # cloudinaryService, webhookService, estadoService, preciosService
-│   ├── views/                   # EJS (index, admin, partials)
+│   ├── routes/                 # api.js, admin.js, ticket.js (puerta del evento)
+│   ├── services/               # Cloudinary, webhook, precios, token, QR, entrada y cookie de staff
+│   ├── views/                  # EJS (index, admin, ticket, partials)
 │   └── public/                  # css/js servidos estaticamente
 └── tests/                       # node:test (aforo, registroHttp, registroSoloBusHttp,
                                  #   adminPrecios, preciosService, cloudinaryService,
