@@ -63,8 +63,37 @@ async function borrarComprobante(publicId) {
   await cloudinary.uploader.destroy(publicId);
 }
 
+// Sube el PNG del QR generado en memoria (ver src/services/qrService.js) a la
+// carpeta qr/, separada de comprobantes/ para que sean distinguibles en el
+// dashboard de Cloudinary y se puedan limpiar por separado al terminar el
+// evento. Devuelve { secure_url, public_id }, igual que subirComprobante.
+//
+// El `public_id` lo genera Cloudinary (aleatorio): no se deriva del token ni
+// del id del registro. Si se derivara del token, la URL de la imagen filtraria
+// el secreto de la entrada a cualquiera que viera el nombre del asset en el
+// dashboard o en un log.
+function subirQr(buffer) {
+  return new Promise((resolve, reject) => {
+    const streamUpload = cloudinary.uploader.upload_stream({ folder: 'qr' }, (error, result) => {
+      if (error) return reject(error);
+      resolve({ secure_url: result.secure_url, public_id: result.public_id });
+    });
+    streamUpload.end(buffer);
+  });
+}
+
+// Mismo espiritu que borrarComprobante: no dejar un QR huerfano en Cloudinary
+// cuando la aprobacion falla DESPUES de haber subido la imagen (ver el orden
+// exacto documentado en src/routes/admin.js).
+async function borrarQr(publicId) {
+  if (!publicId) return;
+  await cloudinary.uploader.destroy(publicId);
+}
+
 module.exports = {
   inicializar,
   subirComprobante,
   borrarComprobante,
+  subirQr,
+  borrarQr,
 };
