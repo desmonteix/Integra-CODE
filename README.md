@@ -84,6 +84,10 @@ directamente (no requiere ningún paso de CLI).
   que el cliente confirme los montos finales. Mientras estén vacíos (o en `0`), la interfaz
   muestra "Por confirmar" en vez de un monto — esto es un estado totalmente soportado, no
   bloquea el funcionamiento de la app.
+- El panel de `/admin` acepta un monto o una etiqueta breve como "Sold Out" o "-" en cada
+  campo. La etiqueta se muestra sin `S/` y deshabilita ese tipo de entrada en el formulario;
+  el servidor también rechaza registros enviados directamente para ese tipo. Los importes
+  guardados en registros anteriores no cambian.
 - Las tres variables `PRECIO_*` son solo el valor **inicial**. Desde que el panel del
   organizador puede editar los precios (`POST /admin/precios`), un precio guardado en la base
   de datos le gana a la variable de entorno; la variable se usa solo mientras no exista un

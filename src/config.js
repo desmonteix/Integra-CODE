@@ -18,15 +18,17 @@ function parseIntConDefault(valor, porDefecto) {
   return Number.isFinite(n) ? n : porDefecto;
 }
 
-// Retorna "Por confirmar" si el valor del env esta vacio/undefined/"0",
-// o "S/ <valor>" en caso contrario. Se usa tal cual llega el string del
-// .env (sin redondear ni forzar formato numerico) para no perder lo que
-// el cliente escribio.
+function esMontoPrecio(valor) {
+  return /^\d+(\.\d{1,2})?$/.test(String(valor ?? '').trim());
+}
+
+// Retorna "Por confirmar" si el valor esta vacio/undefined/"0";
+// ante un monto agrega S/ y ante una etiqueta muestra el texto tal cual.
 function formatearPrecio(valorEnv) {
   if (valorEnv === undefined || valorEnv === null) return 'Por confirmar';
   const limpio = String(valorEnv).trim();
   if (limpio === '' || limpio === '0') return 'Por confirmar';
-  return `S/ ${limpio}`;
+  return esMontoPrecio(limpio) ? `S/ ${limpio}` : limpio;
 }
 
 // MAX_AFORO=0 o negativo no tiene sentido de negocio (dejaria la app
@@ -78,3 +80,4 @@ const config = {
 
 module.exports = config;
 module.exports.formatearPrecio = formatearPrecio;
+module.exports.esMontoPrecio = esMontoPrecio;

@@ -84,6 +84,7 @@ function crearApp(dbConexion) {
         aforoMaximo: estado.aforo_maximo,
         disponibles: estado.disponibles,
         precios: estado.precios,
+        tiposDisponibles: estado.tipos_disponibles,
         yapeNumero: config.yapeNumero,
         yapeTitular: config.yapeTitular,
       });

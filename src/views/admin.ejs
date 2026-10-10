@@ -102,7 +102,8 @@
 
       <form class="form-precios" method="post" action="<%= accionPrecios %>" aria-describedby="nota-precios">
         <p class="form-precios__nota" id="nota-precios">
-          Dejá un campo vacío para mostrarlo como «Por confirmar». Cambiar un precio
+          Escribí un monto o un texto como «Sold Out». El texto deja esa opción fuera del
+          registro. Dejá un campo vacío para mostrarlo como «Por confirmar». Cambiar un precio
           <strong>no modifica</strong> lo que ya pagaron los registros existentes.
         </p>
 
@@ -130,16 +131,14 @@
           <div class="campo campo--precio">
             <label for="<%= idInput %>"><%= campo.nombre %></label>
             <div class="campo--precio__fila">
-              <span class="campo--precio__moneda" aria-hidden="true">S/</span>
               <input
                 type="text"
                 id="<%= idInput %>"
                 name="<%= idInput %>"
                 value="<%= valoresPrecios[campo.tipo] %>"
-                inputmode="decimal"
                 autocomplete="off"
-                maxlength="12"
-                placeholder="Por confirmar"
+                maxlength="32"
+                placeholder="Monto o texto"
                 aria-describedby="<%= describedBy %>"
                 <% if (tieneError) { %>aria-invalid="true"<% } %>
               />

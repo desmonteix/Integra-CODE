@@ -46,11 +46,20 @@ const TIPOS_CON_PRECIO = Object.keys(CLAVE_POR_TIPO);
 // Un precio es un string que el organizador escribio, igual que si viniera
 // del .env: se guarda tal cual (sin redondear ni reformatear) para no perder
 // lo que tipeo. Estos topes son de negocio, no de la DB.
-const PRECIO_LONGITUD_MAX = 12;
-// Hasta 6 digitos enteros y hasta 2 decimales. Rechaza por construccion los
-// negativos (no hay signo en el patron), "NaN"/"abc"/"1e5", el espacio en
-// blanco interno, y mas de 2 decimales.
+const PRECIO_LONGITUD_MAX = 32;
+// Hasta 6 digitos enteros y hasta 2 decimales. Distingue los montos de las
+// etiquetas y rechaza formatos numericos invalidos como -5, 1e5 o 18.123.
 const REGEX_PRECIO_VALIDO = /^\d{1,6}(\.\d{1,2})?$/;
+// Una etiqueta empieza con una letra; '-' es un estado breve habitual. No
+// convertir montos mal escritos (18.123, -5, 1e5) en etiquetas por accidente.
+const REGEX_ETIQUETA_VALIDA = /^(?:-|[\p{L}][\p{L}\p{N} .,_()-]*)$/u;
+
+// Un texto publicado no es un importe cobrable. Se usa la misma regla en el
+// estado público y al registrar para que la UI y el servidor coincidan.
+function esEtiquetaPrecio(valor) {
+  const limpio = String(valor ?? '').trim();
+  return limpio !== '' && !config.esMontoPrecio(limpio);
+}
 
 // --- Funciones puras de resolucion -----------------------------------------
 //
@@ -114,9 +123,9 @@ async function obtenerPreciosFormateados(dbConexion) {
 // contrario. Nunca coerciona en silencio — un valor invalido se reporta al
 // organizador y NADA se persiste.
 //
-// Acepta: el string vacio (= "Por confirmar") o un numero no negativo, finito,
-// con a lo sumo 2 decimales.
-// Rechaza: negativos, NaN/texto, mas de 2 decimales, largos absurdos, y
+// Acepta: vacio (= "Por confirmar"), monto no negativo con hasta 2 decimales,
+// o una etiqueta breve (por ejemplo "Sold Out" o "-").
+// Rechaza: montos invalidos, caracteres fuera de las etiquetas, largos absurdos, y
 // cualquier cosa que no sea un string (p.ej. un array, que es lo que entrega
 // express.urlencoded si el mismo campo viaja repetido en el body).
 //
@@ -162,8 +171,9 @@ function validarPrecios(body) {
       mensaje = `no debe superar ${PRECIO_LONGITUD_MAX} caracteres`;
     } else {
       valorLimpio = valorCrudo.trim();
-      if (valorLimpio !== '' && !REGEX_PRECIO_VALIDO.test(valorLimpio)) {
-        mensaje = 'debe ser un numero mayor o igual a 0, con a lo sumo 2 decimales (o vacio para "Por confirmar")';
+      const esEtiqueta = REGEX_ETIQUETA_VALIDA.test(valorLimpio) && !/^(NaN|Infinity)$/i.test(valorLimpio);
+      if (valorLimpio !== '' && !REGEX_PRECIO_VALIDO.test(valorLimpio) && !esEtiqueta) {
+        mensaje = 'debe ser un monto no negativo con hasta 2 decimales, una etiqueta breve o vacío para "Por confirmar"';
       }
     }
 
@@ -185,6 +195,7 @@ module.exports = {
   CLAVE_POR_TIPO,
   TIPOS_CON_PRECIO,
   PRECIO_LONGITUD_MAX,
+  esEtiquetaPrecio,
   resolverPrecios,
   obtenerPreciosEfectivos,
   obtenerPreciosFormateados,

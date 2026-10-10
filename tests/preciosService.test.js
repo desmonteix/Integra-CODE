@@ -141,6 +141,20 @@ test('validarPrecios acepta numeros no negativos con hasta 2 decimales y el stri
   }
 });
 
+test('validarPrecios acepta etiquetas cortas en cualquiera de los tres campos', () => {
+  const resultado = validarPrecios(bodyDePrecios({
+    precio_solo_entrada: '  Sold Out  ',
+    precio_entrada_bus: '-',
+    precio_solo_bus: 'No disponible',
+  }));
+  assert.equal(resultado.valido, true);
+  assert.deepEqual(resultado.precios, {
+    precio_solo_entrada: 'Sold Out',
+    precio_entrada_bus: '-',
+    precio_solo_bus: 'No disponible',
+  });
+});
+
 test('validarPrecios normaliza con trim y devuelve las claves de la tabla configuracion', () => {
   const resultado = validarPrecios(bodyDePrecios({ precio_solo_bus: '  18.5  ' }));
   assert.equal(resultado.valido, true);
@@ -155,7 +169,7 @@ test('validarPrecios rechaza negativos, no numericos, demasiados decimales y lar
   const invalidos = [
     '-5',          // negativo
     '-0.01',       // negativo chico
-    'abc',         // no numerico
+    '@@@',         // caracteres que no forman una etiqueta
     'NaN',         // el literal NaN
     '1e5',         // notacion exponencial
     '18.123',      // 3 decimales
@@ -188,7 +202,7 @@ test('validarPrecios rechaza un campo repetido (array) en vez de coercionarlo', 
 test('validarPrecios acumula los errores de los 3 campos a la vez', () => {
   const resultado = validarPrecios({
     precio_solo_entrada: '-1',
-    precio_entrada_bus: 'abc',
+    precio_entrada_bus: '@@@',
     precio_solo_bus: '1.234',
   });
   assert.equal(resultado.valido, false);

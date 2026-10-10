@@ -66,6 +66,11 @@
         </div>
       </section>
 
+      <% if (!Object.values(tiposDisponibles).some(Boolean)) { %>
+        <div class="alerta alerta-agotado">
+          <strong>No hay opciones disponibles</strong> — ya no se aceptan registros.
+        </div>
+      <% } else { %>
       <div id="mensaje-exito" class="alerta alerta-exito" hidden></div>
       <div id="mensaje-error-general" class="alerta alerta-error" hidden></div>
 
@@ -132,7 +137,7 @@
           </legend>
           <div class="opciones-entrada">
             <label class="tarjeta-entrada">
-              <input type="radio" name="tipo_entrada" value="solo_entrada" required />
+              <input type="radio" name="tipo_entrada" value="solo_entrada" required <% if (!tiposDisponibles.solo_entrada) { %>disabled<% } %> />
               <span class="tarjeta-entrada__icono" aria-hidden="true">
                 <svg class="icono"><use href="#icono-ticket"></use></svg>
               </span>
@@ -142,7 +147,7 @@
               <span class="tarjeta-entrada__precio"><%= precios.solo_entrada %></span>
             </label>
             <label class="tarjeta-entrada">
-              <input type="radio" name="tipo_entrada" value="entrada_bus" />
+              <input type="radio" name="tipo_entrada" value="entrada_bus" <% if (!tiposDisponibles.entrada_bus) { %>disabled<% } %> />
               <span class="tarjeta-entrada__icono" aria-hidden="true">
                 <svg class="icono"><use href="#icono-bus"></use></svg>
               </span>
@@ -152,7 +157,7 @@
               <span class="tarjeta-entrada__precio"><%= precios.entrada_bus %></span>
             </label>
             <label class="tarjeta-entrada">
-              <input type="radio" name="tipo_entrada" value="solo_bus" />
+              <input type="radio" name="tipo_entrada" value="solo_bus" <% if (!tiposDisponibles.solo_bus) { %>disabled<% } %> />
               <span class="tarjeta-entrada__icono" aria-hidden="true">
                 <svg class="icono"><use href="#icono-bus"></use></svg>
               </span>
@@ -186,6 +191,7 @@
       </form>
 
       <%- include('partials/modal-terminos') %>
+      <% } %>
     <% } %>
   </main>
 

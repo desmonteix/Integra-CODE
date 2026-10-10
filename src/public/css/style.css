@@ -803,6 +803,16 @@ select:focus-visible {
   transform: translateY(-1px);
 }
 
+.tarjeta-entrada:has(input:disabled) {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.tarjeta-entrada:has(input:disabled):hover {
+  border-color: var(--color-border);
+  transform: none;
+}
+
 .tarjeta-entrada:has(input:focus-visible) {
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22);
 }
@@ -927,26 +937,13 @@ button[type="submit"]:not(.modal-terminos__cerrar):disabled {
   margin-bottom: 1.5rem;
 }
 
-/* Prefijo "S/" pegado al input, para que el campo contenga solo el numero
-   (lo que se guarda tal cual) y la moneda quede como contexto visual. */
 .campo--precio__fila {
   display: flex;
   align-items: stretch;
-  gap: 0.5rem;
 }
 
-.campo--precio__moneda {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 2.75rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-alt);
-  border: 1.5px solid var(--color-border);
-  color: var(--color-muted-foreground);
-  font-weight: 700;
-  font-size: 0.95rem;
+.campo--precio__fila input {
+  width: 100%;
 }
 
 .campo--precio__ayuda {
