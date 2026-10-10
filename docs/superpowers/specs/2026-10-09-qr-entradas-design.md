@@ -391,13 +391,29 @@ No se agrega `STAFF_KEY`: se reusa `ADMIN_KEY` por decisión del organizador.
    variable de entorno y acota esto a solo marcar ingresos. Decisión explícita del
    organizador.
 
-2. **`ADMIN_KEY` débil y expuesta.** La clave en uso al momento de este diseño tiene
-   8 caracteres y es una palabra corta más el año, es decir adivinable con una lista
-   corta de candidatos obvios pese al rate limit de 20 intentos cada 15 minutos. Y
-   quedó expuesta en texto plano en una conversación. Desde este cambio, esa clave ya
-   no solo da lectura: permite emitir entradas válidas y marcar ingresos.
-   **Rotarla a 24+ bytes aleatorios antes de poner esto en producción** es un
-   prerrequisito, no una mejora opcional.
+2. **`ADMIN_KEY` débil y expuesta, y se mantiene así por decisión del organizador.**
+   La clave en uso tiene 8 caracteres y es una palabra corta más el año, es decir
+   adivinable con una lista corta de candidatos obvios (`CODE2026`, `code2026`, etc.)
+   pese al rate limit de 20 intentos cada 15 minutos. Además quedó expuesta en texto
+   plano en la conversación donde se diseñó esto.
+
+   Desde este cambio, esa clave ya no solo da lectura de la lista: permite **emitir
+   entradas válidas y marcar ingresos**. Quien la adivine puede aprobarse a sí mismo,
+   generar QR escaneables, o marcar como ingresadas a personas que todavía no
+   llegaron.
+
+   Se recomendó rotarla a 24 bytes aleatorios
+   (`node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`),
+   lo cual es cambiar una variable de entorno en Vercel y en el `.env`. **El
+   organizador decidió explícitamente mantener la clave actual.** Queda registrado
+   acá para que la decisión sea rastreable y reversible: rotarla sigue siendo posible
+   en cualquier momento sin tocar una línea de código, y no invalida ningún QR ya
+   emitido (los tokens de entrada son independientes de esta clave).
+
+   Con la clave sin rotar, el rate limit del router de `/admin` pasa a ser la **única**
+   defensa contra la emisión no autorizada de entradas. Por eso las rutas de escritura
+   nuevas se montan dentro de ese mismo router, detrás del límite existente, y no en
+   uno propio sin límite.
 
 3. **El `ticket_url` queda en el historial de ejecuciones de n8n.** Ese link *es* el
    secreto de la entrada, así que quien tenga acceso al n8n puede extraer entradas
@@ -457,18 +473,20 @@ Sobre `node:test`, sin dependencias nuevas, siguiendo los archivos existentes en
 
 ## Orden de despliegue
 
-1. Rotar `ADMIN_KEY` (prerrequisito, ver Riesgos aceptados).
-2. Backup de la base: `turso db shell <base> ".dump" > backup-pre-002.sql`.
-3. Correr `002-qr-entradas.sql` contra Turso, en un momento de poca actividad.
-4. Agregar `BASE_URL` en las variables de entorno de Vercel.
-5. Desplegar el código.
-6. Armar la rama `entrada_aprobada` en el workflow de n8n.
-7. Probar con un registro propio de punta a punta: aprobar, recibir el correo,
+1. Backup de la base: `turso db shell <base> ".dump" > backup-pre-002.sql`.
+2. Correr `002-qr-entradas.sql` contra Turso, en un momento de poca actividad.
+3. Agregar `BASE_URL` en las variables de entorno de Vercel.
+4. Desplegar el código.
+5. Armar la rama `entrada_aprobada` en el workflow de n8n.
+6. Probar con un registro propio de punta a punta: aprobar, recibir el correo,
    escanear desde un teléfono con la cookie de staff, verificar que el segundo
    escaneo da "YA USADO", y que deshacer funciona.
-8. Recién entonces, la aprobación en lote de los registros acumulados.
+7. Recién entonces, la aprobación en lote de los registros acumulados.
 
-El paso 6 va después del deploy a propósito: hasta que el workflow tenga la rama, el
+`ADMIN_KEY` **no** se rota: decisión explícita del organizador, ver Riesgos
+aceptados.
+
+El paso 5 va después del deploy a propósito: hasta que el workflow tenga la rama, el
 evento nuevo llega a n8n y no hace nada. Eso no rompe nada (la aprobación y el QR ya
 están guardados), y el botón `Reenviar` permite reemitir el correo de los que se
 aprobaron durante esa ventana.
